@@ -1,0 +1,17 @@
+#
+#  BCM 4343s V4l2 driver.
+#
+menu "BCM4343S FM driver (V4L2 based)"
+config RADIO_BCM4343S
+	tristate "Broadcom BCM4343S FM Radio"
+	depends on VIDEO_V4L2
+
+	help
+	Choose Y here if you have this FM radio chip.
+
+	In order to control your radio card, you will need to use programs
+	that are compatible with the Video For Linux 2 API.  Information on
+	this API and pointers to "v4l2" programs may be found at
+	<file:Documentation/video4linux/API.html>.
+
+endmenu

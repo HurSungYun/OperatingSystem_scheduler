@@ -1,0 +1,12 @@
+#
+# Coreriver touchkey configuration
+#
+
+config KEYBOARD_CORERIVER_TOUCHKEY
+        tristate "Coreriver touchkey support"
+        default n
+        help
+          Say Y here to enable the
+          coreriver touchkey.
+          To compile this driver as a
+          module, choose M here.
