@@ -8,3 +8,13 @@
 * If you don't know what to do, contact @HURSUNGYUN or @SEOJANGHO (lol) for help. 
 
 * Cheer up and let's get over this!
+
+# guideline for TA
+
+* Please checkout to projX. (X is number of project)
+
+* open and read new README.md file.
+
+* Follow the instruction.
+
+* Thanks for all your help :).
