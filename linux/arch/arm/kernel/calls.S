@@ -1,13 +1,13 @@
 /*
- *  linux/arch/arm/kernel/calls.S
+ *	linux/arch/arm/kernel/calls.S
  *
- *  Copyright (C) 1995-2005 Russell King
+ *	Copyright (C) 1995-2005 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- *  This file is included thrice in entry-common.S
+ *	This file is included thrice in entry-common.S
  */
 /* 0 */		CALL(sys_restart_syscall)
 		CALL(sys_exit)
@@ -391,8 +391,10 @@
 		CALL(sys_finit_module)
 /* 380 */	CALL(sys_ni_syscall)		/* reserved sys_sched_setattr */
 		CALL(sys_ni_syscall)		/* reserved sys_sched_getattr */
-		CALL(sys_ni_syscall)		/* reserved sys_renameat2     */
+		CALL(sys_ni_syscall)		/* reserved sys_renameat2			*/
 		CALL(sys_seccomp)
+		CALL(sched_setweight)
+/* 385 */ CALL(sched_getweight)
 
 #ifndef syscalls_counted
 .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls

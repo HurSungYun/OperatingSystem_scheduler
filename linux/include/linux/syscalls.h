@@ -77,6 +77,7 @@ struct sigaltstack;
 #include <linux/quota.h>
 #include <linux/key.h>
 #include <trace/syscall.h>
+#include <linux/sched.h>
 
 /*
  * __MAP - apply a macro to syscall arguments
@@ -196,6 +197,8 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	SYSCALL_ALIAS(sys##name, SyS##name);				\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
+asmlinkage int sched_setweight(pid_t pid, int weight);
+asmlinkage int sched_getweight(pid_t pid);
 asmlinkage long sys_time(time_t __user *tloc);
 asmlinkage long sys_stime(time_t __user *tptr);
 asmlinkage long sys_gettimeofday(struct timeval __user *tv,
