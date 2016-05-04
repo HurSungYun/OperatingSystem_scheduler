@@ -1,14 +1,14 @@
 /*
- *  arch/arm/include/asm/unistd.h
+ *	arch/arm/include/asm/unistd.h
  *
- *  Copyright (C) 2001-2005 Russell King
+ *	Copyright (C) 2001-2005 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * Please forward _all_ changes to this file to rmk@arm.linux.org.uk,
- * no matter what the change is.  Thanks!
+ * no matter what the change is.	Thanks!
  */
 #ifndef _UAPI__ASM_ARM_UNISTD_H
 #define _UAPI__ASM_ARM_UNISTD_H
@@ -412,6 +412,10 @@
 #define __NR_renameat2			(__NR_SYSCALL_BASE+382)
 */
 #define __NR_seccomp			(__NR_SYSCALL_BASE+383)
+/* For proj3 */
+#define __NR_sched_setweight			(__NR_SYSCALL_BASE+384)
+#define __NR_sched_getweight			(__NR_SYSCALL_BASE+385)
+
 
 /*
  * This may need to be greater than __NR_last_syscall+1 in order to

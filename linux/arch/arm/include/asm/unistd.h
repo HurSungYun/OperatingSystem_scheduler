@@ -1,21 +1,21 @@
 /*
- *  arch/arm/include/asm/unistd.h
+ *	arch/arm/include/asm/unistd.h
  *
- *  Copyright (C) 2001-2005 Russell King
+ *	Copyright (C) 2001-2005 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * Please forward _all_ changes to this file to rmk@arm.linux.org.uk,
- * no matter what the change is.  Thanks!
+ * no matter what the change is.	Thanks!
  */
 #ifndef __ASM_ARM_UNISTD_H
 #define __ASM_ARM_UNISTD_H
 
 #include <uapi/asm/unistd.h>
 
-#define __NR_syscalls  (384)
+#define __NR_syscalls  (388)
 #define __ARM_NR_cmpxchg		(__ARM_NR_BASE+0x00fff0)
 
 #define __ARCH_WANT_STAT64
