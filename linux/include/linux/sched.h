@@ -1050,6 +1050,9 @@ struct sched_rt_entity {
 #endif
 };
 
+sched_wrr_entity{   /*TODO: I'm not sure */
+
+}
 
 struct rcu_node;
 
