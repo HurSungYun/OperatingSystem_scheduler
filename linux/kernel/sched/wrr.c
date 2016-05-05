@@ -8,7 +8,7 @@
 /*TODO: rearrange methods we nee */
 
 const struct sched_class fair_sched_class = {
-	.next			= &idle_sched_class,
+	.next			= &idle_sched_class,      /* modify to fair_sched_class */
 	.enqueue_task		= enqueue_task_fair,
 	.dequeue_task		= dequeue_task_fair,
 	.yield_task		= yield_task_fair,
