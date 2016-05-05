@@ -109,6 +109,8 @@ extern struct mutex sched_domains_mutex;
 struct cfs_rq;
 struct rt_rq;
 
+struct wrr_rq;
+
 extern struct list_head task_groups;
 
 struct cfs_bandwidth {
@@ -218,6 +220,8 @@ extern void init_tg_rt_entry(struct task_group *tg, struct rt_rq *rt_rq,
 		struct sched_rt_entity *rt_se, int cpu,
 		struct sched_rt_entity *parent);
 
+/* TODO: add wrr_sched_group */
+
 extern struct task_group *sched_create_group(struct task_group *parent);
 extern void sched_online_group(struct task_group *tg,
 			       struct task_group *parent);
@@ -235,6 +239,12 @@ extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
 struct cfs_bandwidth { };
 
 #endif	/* CONFIG_CGROUP_SCHED */
+
+
+struct wrr_rq{   /* TODO:implement here */
+
+}  
+
 
 /* CFS-related fields in a runqueue */
 struct cfs_rq {
@@ -702,6 +712,9 @@ static inline void set_task_rq(struct task_struct *p, unsigned int cpu)
 	p->rt.rt_rq  = tg->rt_rq[cpu];
 	p->rt.parent = tg->rt_se[cpu];
 #endif
+
+/* TODO: set something */
+
 }
 
 #else /* CONFIG_CGROUP_SCHED */
