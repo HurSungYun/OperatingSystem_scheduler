@@ -394,7 +394,7 @@ extern struct root_domain def_root_domain;
  * (such as the load balancing or the thread migration code), lock
  * acquire operations must be ordered by ascending &runqueue.
  */
-struct rq {
+struct rq {         /* struct rq is here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 	/* runqueue lock: */
 	raw_spinlock_t lock;
 
@@ -422,6 +422,7 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+  struct wrr_rq wrr;    /* add wrr_rq */
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -434,6 +435,14 @@ struct rq {
 #ifdef CONFIG_RT_GROUP_SCHED
 	struct list_head leaf_rt_rq_list;
 #endif
+
+/* TODO: implement CONFIG_WRR_GROUP_SCHED */
+
+/*
+#ifdef CONFI_WRR_GROUP_SCHED
+	struct list_head leaf_wrr_rq_list;
+#endif
+*/
 
 	/*
 	 * This is part of a global counter where only the total sum
@@ -975,7 +984,7 @@ static const u32 prio_to_wmult[40] = {
 
 #define DEQUEUE_SLEEP		1
 
-struct sched_class {
+struct sched_class {      /* sched_class is here !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 	const struct sched_class *next;
 
 	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags);
@@ -1029,6 +1038,8 @@ extern const struct sched_class stop_sched_class;
 extern const struct sched_class rt_sched_class;
 extern const struct sched_class fair_sched_class;
 extern const struct sched_class idle_sched_class;
+
+extern const struct sched_class wrr_sched_class;   /* I think it is need to write */
 
 
 #ifdef CONFIG_SMP
@@ -1325,8 +1336,12 @@ extern struct sched_entity *__pick_last_entity(struct cfs_rq *cfs_rq);
 extern void print_cfs_stats(struct seq_file *m, int cpu);
 extern void print_rt_stats(struct seq_file *m, int cpu);
 
+extern void printf_wrr_stats(struct seq_file *m, int cpu);  /* it is also need to be implemented */
+
 extern void init_cfs_rq(struct cfs_rq *cfs_rq);
 extern void init_rt_rq(struct rt_rq *rt_rq, struct rq *rq);
+
+extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq); /* same as above */
 
 extern void cfs_bandwidth_usage_inc(void);
 extern void cfs_bandwidth_usage_dec(void);
