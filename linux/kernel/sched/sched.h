@@ -230,6 +230,11 @@ extern void sched_offline_group(struct task_group *tg);
 
 extern void sched_move_task(struct task_struct *tsk);
 
+struct wrr_rq{   /* TODO:implement here */
+	int weight;
+	
+}  
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
 #endif
@@ -239,12 +244,6 @@ extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
 struct cfs_bandwidth { };
 
 #endif	/* CONFIG_CGROUP_SCHED */
-
-
-struct wrr_rq{   /* TODO:implement here */
-
-}  
-
 
 /* CFS-related fields in a runqueue */
 struct cfs_rq {
