@@ -1051,8 +1051,14 @@ struct sched_rt_entity {
 };
 
 sched_wrr_entity{   /*TODO: I'm not sure */
-
-}
+	unsigned long weight;
+/*TODO: I'm not sure either..*/
+#ifdef CONFIG_WRR_GROUP_SCHED
+	struct sched_wrr_entity *parent;
+	struct wrr_rq *wrr_rq;
+	struct wrr_rq *my_q;
+#endif
+};
 
 struct rcu_node;
 
@@ -1081,6 +1087,7 @@ struct task_struct {         /* task_struct revisitted~~~~~~~~~~~~~~~~~~~~~~~~~~
 	const struct sched_class *sched_class;    /* It indicates current scheduler */
 	struct sched_entity se;         /* contains list head for rq */
 	struct sched_rt_entity rt;      /* same as above */
+	struct sched_wrr_entity wrr;			/* may need one */
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
 #endif
