@@ -6,6 +6,21 @@
 #include <linux/slab.h>
 
 
+static inline struct wrr_rq *wrr_rq_of(struct sched_wrr_entity *se)
+{
+  return se->wrr_rq;
+}
+
+static void enqueue_wrr_entity(struct *wrr_rq)
+{
+	/*TODO: do something */
+
+	list_add(
+
+  /*TODO: do remain thing */
+}
+
+
 /*TODO: rearrange methods we nee */
 
 const struct sched_class wrr_sched_class;
@@ -13,12 +28,17 @@ const struct sched_class wrr_sched_class;
 static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flag)
 {
 	struct wrr_rq *wrr_rq;
-	struct sched_wrr_entity *wrr = &p->wrr;
+	struct sched_wrr_entity *se = &p->wrr;
 
+	wrr_rq = wrr_rq_of(se);   /* implemented above  */
+	enqueue_wrr_entity(wrr_rq);  /* TODO: Are other parameters needed? */
+	
 }
 
 static void dequeue_task_wrr(struct rq *rq, struct task_struct *p)
 {
+
+
 }
 
 static void yield_task_wrr()
@@ -64,7 +84,7 @@ const struct sched_class wrr_sched_class = {
 
 	.get_rr_interval	= get_rr_interval_wrr,
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#ifdef CONFIG_WRR_GROUP_SCHED
 	.task_move_group	= task_move_group_wrr,
 #endif
 };
