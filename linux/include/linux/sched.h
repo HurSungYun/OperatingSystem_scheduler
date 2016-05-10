@@ -1050,15 +1050,11 @@ struct sched_rt_entity {
 #endif
 };
 
-sched_wrr_entity{
-  struct list_head run_list; 
+struct sched_wrr_entity{
+	struct list_head run_list; 
 	unsigned long weight;
-/*TODO: I'm not sure*/
-#ifdef CONFIG_WRR_GROUP_SCHED
-	struct sched_wrr_entity *parent;
-	struct wrr_rq *wrr_rq;
-	struct wrr_rq *my_q;
-#endif
+	u64			exec_start;
+	u64			sum_exec_runtime;
 };
 
 struct rcu_node;
