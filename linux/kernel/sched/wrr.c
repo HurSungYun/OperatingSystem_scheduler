@@ -8,6 +8,18 @@
 
 const struct sched_class wrr_sched_class;
 
+void init_wrr_rq(struct wrr_rq *wrr_rq)
+{
+
+#if defined CONFIG_SMP
+#endif
+
+	wrr_rq->total_weight = 0;
+	wrr_rq->nr_running = 0;
+	wrr_rq->run_queue; /* new sched_wrr_entity */ 
+}
+
+
 /* run queue management */
 static inline void list_head *wrr_rq_list(struct wrr_rq *wrr_rq)
 {
@@ -100,8 +112,27 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 
 static int find_lowest_rq(struct task_struct *p)
 {
-	/*TODO: compare total weights of run queues and pick the smallest one */
-	return 0;
+	/*TODO: compare total weights of run queues and pick the smallest one */ 
+	int cpu = task_cpu(p);
+	struct rq *rq;
+	int best_cpu = -1;
+	unsigned long best_weight = -1;
+	struct wrr_rq *wrr;
+
+	if (p->nr_cpus_allowed == 1)  /*TODO: I don't know exact number of it */
+		return -1; /* No other targets possible */
+
+	for_each_possible(cpu) {
+		/*TODO: comparing and set the lowest one */
+		rq = cpu_rq(cpu);
+		wrr = &rq->wrr;
+
+		if(wrr->total_weight < best_weight || best_weight == -1) {
+			best_cpu = cpu;
+			best_weight = wrr->total_weight;
+		}
+	}
+	return best_cpu;
 }
 static int select_task_rq_wrr(struct task_struct *p)
 {
@@ -135,12 +166,12 @@ out:
 */
 
 /* runtime management */
-static void set_curr_task_rt(struct rq *rq)
+static void set_curr_task_wrr(struct rq *rq)
 {
 	struct task_struct *p;
 
 	p = rq->curr;
-	p->wrr.exec_start = rq->clock_task;
+	p->wrr.exec_start = rq->clock_task; /* what is clock_task and exec_start? */
 }
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p)
@@ -165,11 +196,6 @@ const struct sched_class wrr_sched_class = {
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,					//TODO: find_lowest_rq()
-/*
-#ifdef CONFIG_FAIR_GROUP_SCHED
-	.migrate_task_rq	= migrate_task_rq_wrr, 				
-#endif
-*/
 	.set_cpus_allowed       = set_cpus_allowed_wrr,
 	.rq_online		= rq_online_wrr,
 	.rq_offline		= rq_offline_wrr,
@@ -189,11 +215,4 @@ const struct sched_class wrr_sched_class = {
 	.switched_to		= switched_to_wrr,
 
 	.get_rr_interval	= get_rr_interval_wrr,
-/*
-#ifdef CONFIG_WRR_GROUP_SCHED
-	.task_move_group	= task_move_group_wrr, 				
-#endif
-*/
 };
-
-
