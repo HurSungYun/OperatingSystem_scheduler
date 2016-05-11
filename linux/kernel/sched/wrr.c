@@ -115,8 +115,8 @@ static int find_lowest_rq(struct task_struct *p)
 	/*TODO: compare total weights of run queues and pick the smallest one */ 
 	int cpu = task_cpu(p);
 	struct rq *rq;
-  int best_cpu = -1;
-  unsigned long best_weight = 0;
+	int best_cpu = -1;
+	unsigned long best_weight = 0;
 	struct wrr_rq *wrr;
 
 	if (p->nr_cpus_allowed == 1)  /*TODO: I don't know exact number of it */
@@ -131,8 +131,8 @@ static int find_lowest_rq(struct task_struct *p)
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
 		}
-  }
-  return best_cpu;
+	}
+	return best_cpu;
 }
 static int select_task_rq_wrr(struct task_struct *p)
 {
