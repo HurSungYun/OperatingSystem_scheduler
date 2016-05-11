@@ -113,21 +113,25 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 static int find_lowest_rq(struct task_struct *p)
 {
 	/*TODO: compare total weights of run queues and pick the smallest one */ 
-	int cpu = task_cpu(p);
+	int cpu;
 	struct rq *rq;
-	int best_cpu = -1;
-	unsigned long best_weight = -1;
+	int best_cpu;
+	unsigned long best_weight;
 	struct wrr_rq *wrr;
 
 	if (p->nr_cpus_allowed == 1)  /*TODO: I don't know exact number of it */
 		return -1; /* No other targets possible */
+
+	cpu = task_cpu(p);
+	best_cpu = -1;
+	best_weight = p->wrr.weight;
 
 	for_each_possible(cpu) {
 		/*TODO: comparing and set the lowest one */
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
 
-		if(wrr->total_weight < best_weight || best_weight == -1) {
+		if(wrr->total_weight < best_weight) {
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
 		}
@@ -150,9 +154,10 @@ static int select_task_rq_wrr(struct task_struct *p)
 
 	rcu_read_lock();
 	curr = ACCESS_ONCE(rq->curr);
+	if (curr == p) /* if the task is currently running */
+		/*TODO: ERROR*/;
 
-	/*TODO: check if the task is running */
-	target = find_lowest_rq(p); //TODO: implement find_lowest_rq
+	target = find_lowest_rq(p);
 	if (target != -1) 
 		cpu = target;
 	rcu_read_unlock();
@@ -171,7 +176,7 @@ static void set_curr_task_wrr(struct rq *rq)
 	struct task_struct *p;
 
 	p = rq->curr;
-	p->wrr.exec_start = rq->clock_task; /* what is clock_task and exec_start? */
+	p->wrr.exec_start = rq->clock_task; /* load current time to exec_time */
 }
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p)
