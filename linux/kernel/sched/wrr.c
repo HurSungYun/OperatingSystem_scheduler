@@ -116,7 +116,7 @@ static int find_lowest_rq(struct task_struct *p)
 	int cpu = task_cpu(p);
 	struct rq *rq;
 	int best_cpu = -1;
-	unsigned long best_weight = 0;
+	unsigned long best_weight = -1;
 	struct wrr_rq *wrr;
 
 	if (p->nr_cpus_allowed == 1)  /*TODO: I don't know exact number of it */
@@ -127,7 +127,7 @@ static int find_lowest_rq(struct task_struct *p)
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
 
-		if(wrr->total_weight > best_weight) {
+		if(wrr->total_weight < best_weight || best_weight == -1) {
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
 		}
