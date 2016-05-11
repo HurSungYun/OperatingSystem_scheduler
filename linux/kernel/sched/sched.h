@@ -220,8 +220,6 @@ extern void init_tg_rt_entry(struct task_group *tg, struct rt_rq *rt_rq,
 		struct sched_rt_entity *rt_se, int cpu,
 		struct sched_rt_entity *parent);
 
-/* TODO: add wrr_sched_group */
-
 extern struct task_group *sched_create_group(struct task_group *parent);
 extern void sched_online_group(struct task_group *tg,
 			       struct task_group *parent);
@@ -231,9 +229,10 @@ extern void sched_offline_group(struct task_group *tg);
 extern void sched_move_task(struct task_struct *tsk);
 
 struct wrr_rq{   /* TODO:implement here */
-	int weight;
-	
-}  
+	unsigned long total_weight; /* total weight */
+	unsigned int nr_running;
+	struct sched_wrr_entity run_queue;	/* dummy head for list_head */
+}
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
@@ -444,14 +443,6 @@ struct rq {         /* struct rq is here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef CONFIG_RT_GROUP_SCHED
 	struct list_head leaf_rt_rq_list;
 #endif
-
-/* TODO: implement CONFIG_WRR_GROUP_SCHED */
-
-/*
-#ifdef CONFI_WRR_GROUP_SCHED
-	struct list_head leaf_wrr_rq_list;
-#endif
-*/
 
 	/*
 	 * This is part of a global counter where only the total sum
@@ -711,9 +702,6 @@ static inline void set_task_rq(struct task_struct *p, unsigned int cpu)
 	p->rt.rt_rq  = tg->rt_rq[cpu];
 	p->rt.parent = tg->rt_se[cpu];
 #endif
-
-/* TODO: set something */
-
 }
 
 #else /* CONFIG_CGROUP_SCHED */
