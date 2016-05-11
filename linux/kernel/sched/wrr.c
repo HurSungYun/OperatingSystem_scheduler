@@ -14,9 +14,9 @@ void init_wrr_rq(struct wrr_rq *wrr_rq)
 #if defined CONFIG_SMP
 #endif
 
-  wrr_rq->total_weight = 0;
-  wrr_rq->nr_running = 0;
-  wrr_rq->run_queue; /* new sched_wrr_entity */ 
+	wrr_rq->total_weight = 0;
+	wrr_rq->nr_running = 0;
+	wrr_rq->run_queue; /* new sched_wrr_entity */ 
 }
 
 
