@@ -1052,9 +1052,9 @@ struct sched_rt_entity {
 
 struct sched_wrr_entity{
 	struct list_head run_list; 
-	unsigned long weight;
-	u64			exec_start;
-	u64			sum_exec_runtime;
+	unsigned int weight;
+	u64 time_slice;
+	u64 exec_start;
 };
 
 struct rcu_node;
