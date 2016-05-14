@@ -5,6 +5,7 @@
 
 #include "sched.h"
 #include <linux/slab.h>
+#define WRR_TIMESLICE (10 * HZ / 1000)
 
 const struct sched_class wrr_sched_class;
 
@@ -16,7 +17,8 @@ void init_wrr_rq(struct wrr_rq *wrr_rq)
 
 	wrr_rq->total_weight = 0;
 	wrr_rq->nr_running = 0;
-	wrr_rq->run_queue; /* new sched_wrr_entity */ 
+	wrr_rq->run_queue; /* new sched_wrr_entity */
+	wrr_rq->lb_interval = (2000 * HZ / 1000); /* 2000ms */
 }
 
 
@@ -100,7 +102,7 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 	if (ret == NULL)
 		/*TODO: error*/;
 
-	rq->curr = ret;
+	task_current(rq, ret); /* rq->curr = ret; */
 	return ret;
 }
 
@@ -112,14 +114,13 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 
 static int find_lowest_rq(struct task_struct *p)
 {
-	/*TODO: compare total weights of run queues and pick the smallest one */ 
 	int cpu;
 	struct rq *rq;
 	int best_cpu;
 	unsigned long best_weight;
 	struct wrr_rq *wrr;
 
-	if (p->nr_cpus_allowed == 1)  /*TODO: I don't know exact number of it */
+	if (p->nr_cpus_allowed == 1)
 		return -1; /* No other targets possible */
 
 	cpu = task_cpu(p);
@@ -127,7 +128,6 @@ static int find_lowest_rq(struct task_struct *p)
 	best_weight = p->wrr.weight;
 
 	for_each_possible(cpu) {
-		/*TODO: comparing and set the lowest one */
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
 
@@ -179,12 +179,48 @@ static void set_curr_task_wrr(struct rq *rq)
 	p->wrr.exec_start = rq->clock_task; /* load current time to exec_time */
 }
 
-static void task_tick_wrr(struct rq *rq, struct task_struct *p)
-{
-	struct wrr_sched_entity *se = &p->rt;
+static void update_curr_wrr(struct rq *rq)
+{/* check curr task time_slice */
+	struct task_struct *curr;
+	struct sched_wrr_entity *se;
+	u64 delta_exec;
+
+	curr = rq->curr;
+	se = curr->wrr;
+	delta_exec = rq->clock_task - curr->wrr.exec_start;
+
+	if time_before(se->exec_start + se->time_slice, now)
+		return;
+
+	pick_next_task(rq);
+}
+
+static void load_balance(struct rq *rq){
 
 }
 
+static void task_tick_wrr(struct rq *rq, struct task_struct *p)
+{
+	struct wrr_sched_entity *se = &p->rt;
+	/* update current running task */
+	update_curr_wrr(rq);	
+	/* load balancing */
+	load_balance(rq);
+}
+
+static void task_fork_wrr(struct task_struct *p)
+{/* child weight is the same as parent's */
+	
+}
+
+static void switched_from_wrr()
+{
+}
+
+static void switched_to_wrr(struct rq *rq, struct task_struct *p)
+{/* sched policy switched from other to wrr */
+	p->wrr.weight = 10;
+}
 
 const struct sched_class wrr_sched_class = {
 /* TODO: delete functions we don't need in this project */

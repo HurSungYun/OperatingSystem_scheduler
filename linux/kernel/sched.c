@@ -25,6 +25,10 @@ int sched_setweight(pid_t pid, int weight)
 {
 	struct task_struct *p;
 
+	if (weight < 0) 
+		return -EINVAL;
+//TODO: check administration
+
 	if (pid == 0) {
 		/* set calling process weight */
 		p = current;
