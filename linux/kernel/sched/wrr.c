@@ -197,8 +197,62 @@ static void update_curr_wrr(struct rq *rq)
 	pick_next_task_wrr(rq);
 }
 
-static void load_balance(struct rq *rq){
+static int is_migratable(struct rq *rq, struct task_struct *p) {
+	int cpu;
+	cpu = task_cpu(p);
 
+	if (p->nr_cpus_allowed == 1 || rq->curr == p) return 0;
+	else return 1;
+}
+
+static void load_balance(struct rq *rq){
+	int cpu;
+	unsigned int max_weight = 0;
+	unsigned int min_weight = INT_MAX;
+	struct rq *min_rq;
+	struct rq *max_rq;
+	struct rq* rq;
+	struct wrr_rq *wrr;
+	struct list_head* list;
+	struct sched_wrr_entity *se;
+	struct task_struct *mp; /* migrating task */
+	unsigned int mweight;
+	struct task_struct *p;
+
+	rcu_readlock();
+	for_each_possible(cpu) {
+		rq = cpu_rq(cpu);
+		wrr = &rq->wrr;
+		if (wrr->total_weight < min_weight) {
+			min_rq = rq;
+			min_weight = wrr->total_weight;
+		}
+		if (wrr->total_weight > max_weight) {
+			max_rq = rq;
+			max_weight = wrr->total_weight;
+		}
+	}
+	rcu_readunlock();
+
+	if (min_rq == max_rq) return;
+
+	/*needs synchronization; task in different cpu might access another cpu's rq*/
+
+	mweight = 0;
+	list = wrr_rq_list(&max_rq->wrr);
+	list_for_each_entry(se, list, run_list) {
+		p = wrr_task_of(se);
+		if (is_migratable(max_rq, p) &&
+				se->weight > mweight &&
+				min_weight + se->weight < max_weight - se->weight) {
+			mp = p;
+			mweight = se->weight;
+		}
+	}
+
+	if (mse == NULL) return;
+	dequeue_task_wrr(max_rq, mp);
+	enqueue_task_wrr(min_rq, mp);
 }
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p)
