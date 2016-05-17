@@ -157,8 +157,7 @@ int sched_getweight(pid_t pid) {
 		spin_unlock(&weight_lock);
 
 		return weight;
-	} 
-	else {
+	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (p == NULL)
 			return -EINVAL;
@@ -7122,7 +7121,7 @@ void __init sched_init(void)
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);
-		init_wrr_rq(&rq->wrr);
+		init_wrr_rq(&rq->wrr, rq);
 		init_rt_rq(&rq->rt, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		root_task_group.shares = ROOT_TASK_GROUP_LOAD;

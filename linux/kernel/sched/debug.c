@@ -169,7 +169,31 @@ static void print_rq(struct seq_file *m, struct rq *rq, int rq_cpu)
 	read_unlock_irqrestore(&tasklist_lock, flags);
 }
 
-void print_wrr_rq(); //may be needed
+/*
+void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq){
+	printk("\nwrr_rq[%d] running#: %d\n", cpu, wrr_rq->nr_running);	
+	SEQ_printf(m, "\nwrr_rq[%d]:\n", cpu);	
+}
+*/
+void print_wrr_rq(int cpu, struct rq *rq){
+
+	struct wrr_rq *wrr_rq;
+	struct sched_wrr_entity *se;
+	struct list_head *list;
+	struct task_struct *p;
+
+	wrr_rq = &rq->wrr;
+	se = &wrr_rq->run_queue;
+	list = &se->run_list;
+
+	printk("\nwrr_rq[%d] total weight#: %ld running#: %d\n", cpu, wrr_rq->total_weight, wrr_rq->nr_running);
+
+	list_for_each_entry(se, list, run_list) {
+    p = container_of(se, struct task_struct, wrr);
+		printk("pid#: %d weight#: %d\n", p->pid, se->weight);
+	}
+
+}
 
 void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 {
