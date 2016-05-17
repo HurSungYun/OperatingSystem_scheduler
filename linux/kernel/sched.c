@@ -8,12 +8,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-/*
- *TODO: check the locks
- *TODO: check if other locks are needed
- *TODO: find a way better than busy waiting
- */
-
 /* Set the SCHED_WRR weight of process, as identified by 'pid'.
  * If 'pid' is 0, set the weight for the calling process.
  * System call number 384.
@@ -24,16 +18,17 @@ DEFINE_SPINLOCK(weight_lock);
 int sched_setweight(pid_t pid, int weight)
 {
 	struct task_struct *p;
+	kuid_t rootUid;
+	rootUid.val = 0;
 
 	if (weight < 0) 
 		return -EINVAL;
-//TODO: check administration
+	if (!uid_eq(current->cred->euid, rootUid) && current->pid != pid)
+		return -EINVAL;
 
 	if (pid == 0) {
 		/* set calling process weight */
 		p = current;
-		while (p == current) ;  /* is the code below reachable? */
-		
 		spin_lock(&weight_lock);
 		p->wrr.weight = weight;
 		spin_unlock(&weight_lock);
@@ -46,8 +41,6 @@ int sched_setweight(pid_t pid, int weight)
 		if (p->policy != SCHED_WRR) 
 			return -EINVAL;
 		
-		while (cpu_rq(task_cpu(p))->curr == p) ; /* the task is currently running */
-		
 		spin_lock(&weight_lock);
 		p->wrr.weight = weight;
 		spin_unlock(&weight_lock);
@@ -59,7 +52,7 @@ int sched_setweight(pid_t pid, int weight)
  * If 'pid' is 0, return the weight of the calling process.
  * System call number 385.
  */
-int sched_getweight(pid_t pid){
+int sched_getweight(pid_t pid) {
 	struct task_struct *p;
 	int weight;
 
@@ -70,7 +63,8 @@ int sched_getweight(pid_t pid){
 		spin_unlock(&weight_lock);
 
 		return weight;
-	} else {
+	} 
+	else {
 		p = pid_task(find_vpid(a->pid), PIDTYPE_PID);
 		if (p == NULL)
 			return -EINVAL;

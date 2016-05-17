@@ -228,7 +228,7 @@ extern void sched_offline_group(struct task_group *tg);
 
 extern void sched_move_task(struct task_struct *tsk);
 
-struct wrr_rq{   /* TODO:implement here */
+struct wrr_rq{  
 	unsigned long total_weight; /* total weight */
 	unsigned int nr_running;
 	struct sched_wrr_entity run_queue;	/* dummy head for list_head */
