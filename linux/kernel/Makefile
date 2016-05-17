@@ -49,7 +49,6 @@ ifneq ($(CONFIG_SMP),y)
 obj-y += up.o
 endif
 
-obj-y += sched.o
 obj-$(CONFIG_SMP) += spinlock.o
 obj-$(CONFIG_DEBUG_SPINLOCK) += spinlock.o
 obj-$(CONFIG_PROVE_LOCKING) += spinlock.o

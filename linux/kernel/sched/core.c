@@ -101,6 +101,80 @@
 #include <soc/sprd/sprd_debug.h>
 #endif
 
+/*set_weight, get_weight system calls*/
+
+DEFINE_SPINLOCK(weight_lock);
+
+/* Set the SCHED_WRR weight of process, as identified by 'pid'.
+ * If 'pid' is 0, set the weight for the calling process.
+ * System call number 384.
+ */
+
+int sched_setweight(pid_t pid, int weight)
+{
+	struct task_struct *p;
+	kuid_t rootUid = KUIDT_INIT(0);
+
+	if (weight < 0) 
+		return -EINVAL;
+	if (!uid_eq(current->cred->euid, rootUid) && current->pid != pid)
+		return -EINVAL;
+
+	if (pid == 0) {
+		/* set calling process weight */
+		p = current;
+		spin_lock(&weight_lock);
+		p->wrr.weight = weight;
+		spin_unlock(&weight_lock);
+
+		return 0;
+	} else {
+		p = pid_task(find_vpid(pid), PIDTYPE_PID);
+		if (p == NULL)
+			return -EINVAL;
+		if (p->policy != SCHED_WRR) 
+			return -EINVAL;
+		
+		spin_lock(&weight_lock);
+		p->wrr.weight = weight;
+		spin_unlock(&weight_lock);
+	}
+	return 0;
+}
+
+/* Obtain the SCHED_WRR weight of a process as identified by 'pid'.
+ * If 'pid' is 0, return the weight of the calling process.
+ * System call number 385.
+ */
+int sched_getweight(pid_t pid) {
+	struct task_struct *p;
+	int weight;
+
+	if (pid == 0) {
+		/* set calling process weight */
+		spin_lock(&weight_lock);
+		weight = current->wrr.weight;
+		spin_unlock(&weight_lock);
+
+		return weight;
+	} 
+	else {
+		p = pid_task(find_vpid(pid), PIDTYPE_PID);
+		if (p == NULL)
+			return -EINVAL;
+		if (p->policy != SCHED_WRR) 
+			return -EINVAL;
+		
+		spin_lock(&weight_lock);
+		weight = p->wrr.weight;
+		spin_unlock(&weight_lock);
+		
+		return weight;
+	}
+}
+
+/*set_weight, get_weight system calls*/
+
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
 	unsigned long delta;
@@ -7048,7 +7122,7 @@ void __init sched_init(void)
 		rq->calc_load_active = 0;
 		rq->calc_load_update = jiffies + LOAD_FREQ;
 		init_cfs_rq(&rq->cfs);
-		init_wrr_rq(&rq->wrr);	//not sure if another argument is needed.
+		init_wrr_rq(&rq->wrr);
 		init_rt_rq(&rq->rt, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		root_task_group.shares = ROOT_TASK_GROUP_LOAD;
