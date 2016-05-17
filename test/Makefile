@@ -3,11 +3,15 @@ GCCROOT=/home/eunhyangkim/Documents/opt/tizen-toolchain-4.9~git-i686_armv7l-tize
 CFLAGS=$(INCLUDE)
 CC=$(GCCROOT)/armv7l-tizen-linux-gnueabi-gcc
 
-all: test
+all: test trial 
 
 test: test.c
 	@echo [Arm-cc] $<...
 	@$(CC) $(CFLAGS) $< -o $@
 
+trial: trial.c
+	@echo [Arm-cc] $<...
+	@$(CC) $(CFLAGS) $< -o $@
+
 clean:
-	@rm test
+	@rm test trial
