@@ -11,77 +11,115 @@
 #define LB_INTERVAL (2000 * HZ / 1000)
 
 const struct sched_class wrr_sched_class;
+u64 balance_timestamp;
+
+static inline struct list_head *wrr_rq_list(struct wrr_rq *wrr_rq)
+{
+	return &wrr_rq->run_queue;
+}
+
+static void print_wrr_rq(struct rq *rq)
+{
+	struct sched_wrr_entity *se;
+	struct task_struct *p;
+	int count = 0;
+	printk("sched_wrr: print runqueue[%d] running#: %d\n", rq->cpu, rq->wrr.nr_running);
+
+	list_for_each_entry(se, wrr_rq_list(&rq->wrr), run_list) {
+		p = container_of(se, struct task_struct, wrr);
+		printk("\t\t\twrr_rq[%d]: pid: %d, weight: %d\n", count++, p->pid, p->wrr.weight);
+	}
+}
 
 extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq)
 {
+	balance_timestamp = rq->clock_task;
+	spin_lock_init(&wrr_rq->lock);
 	wrr_rq->total_weight = 0;
 	wrr_rq->nr_running = 0;
-	wrr_rq->last_balancing = rq->clock_task; /* 2000ms */
+	INIT_LIST_HEAD(&wrr_rq->run_queue);
 }
 
 /* run queue management */
-static inline struct list_head *wrr_rq_list(struct wrr_rq *wrr_rq)
-{
-	return &wrr_rq->run_queue.run_list;
-}
 
-static void enqueue_task_wrr(struct rq *rq, struct task_struct *p)
+static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-	struct sched_wrr_entity *se;
 	struct wrr_rq *wrr;
+	struct sched_wrr_entity *se;
 	struct list_head *se_list;
 	struct list_head *rq_list;
+	struct list_head *list;
+	printk("sched_wrr: enqueue_task_wrr --- pid: %d\n", p->pid);
 	
-	wrr = &rq->wrr;
 	se = &p->wrr;
 	se_list = &se->run_list;
+	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
-	// if weight is changed
-	se->time_slice = se->weight * WRR_TIMESLICE;
 
+
+	list_for_each(list, rq_list) {
+		if (list == se_list) break;
+		if (list->next == rq_list) {
+			list_add_tail(se_list, rq_list);
+			wrr->total_weight += se->weight;
+			wrr->nr_running++;
+		}
+	}
+	if (rq_list->next == rq_list) {
+		list_add_tail(se_list, rq_list);
+		wrr->total_weight += se->weight;
+		wrr->nr_running++;
+	}
+/*	
 	list_add_tail(se_list, rq_list);
-//	spin_lock(&weight_lock);
 	wrr->total_weight += se->weight;
-//	//spin_unlock(&weight_lock);
 	wrr->nr_running++;
+*/
+	print_wrr_rq(rq);
 }
 
-static void dequeue_task_wrr(struct rq *rq, struct task_struct *p)
+static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-	struct sched_wrr_entity *se;
 	struct list_head *se_list;
 	struct list_head *rq_list;
+	struct list_head *list;
+	struct list_head *next;
 	struct wrr_rq *wrr;
-	
-	wrr = &rq->wrr;
+	struct sched_wrr_entity *se;
+	printk("sched_wrr: dequeue_task_wrr --- pid: %d\n", p->pid);
+
 	se = &p->wrr;
 	se_list = &se->run_list;
-	rq_list = wrr_rq_list(wrr);
-	// if weight is changed
-	//se->time_slice = se->weight * WRR_TIMESLICE;
+	wrr = &rq->wrr;
+	rq_list = wrr_rq_list(&rq->wrr);
 	
-	list_del_init(se_list);
-//	spin_lock(&weight_lock);
+	list_for_each_safe(list, next, rq_list){
+		if (list == se_list) {
+			list_del(se_list);
+			wrr->total_weight -= se->weight;
+			wrr->nr_running--;
+		}
+	}
+/*
+	list_del(se_list);
 	wrr->total_weight -= se->weight;
-	//spin_unlock(&weight_lock);
 	wrr->nr_running--;
+*/
+	print_wrr_rq(rq);
 }
 
+static void put_prev_task_wrr(struct rq *rq, struct task_struct *p);
 static void yield_task_wrr(struct rq *rq)
 {
-	struct list_head *curr;
-	struct wrr_rq *wrr;
-	struct list_head *rq_list;
+	printk("sched_wrr: yield_task_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	wrr = &rq->wrr;
-	rq_list = wrr_rq_list(wrr);
-	curr = &(rq->curr->wrr.run_list);
-	dequeue_task_wrr(rq, curr);
-	enqueue_task_wrr(rq, curr);
+	put_prev_task_wrr(rq, rq->curr);
+	print_wrr_rq(rq);
 }
 
-static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p)
+static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
+	printk("sched_wrr: yield_task_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
 	return;	
 }
 
@@ -94,32 +132,31 @@ static inline struct task_struct *wrr_task_of(struct sched_wrr_entity *wrr_se)
 #endif
 	return container_of(wrr_se, struct task_struct, wrr);
 }
-static void set_curr_task_wrr(struct rq *rq);
 static struct task_struct *pick_next_task_wrr(struct rq *rq)
 {// first task in the run queue
 	struct list_head *rq_list;
-	struct wrr_rq *wrr;
 	struct sched_wrr_entity *se;
 	struct task_struct *ret;
+	printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	wrr = &rq->wrr;
-	rq_list = wrr_rq_list(wrr);
+	rq_list = wrr_rq_list(&rq->wrr);
+	if (rq_list->next == rq_list)
+		return NULL;
 	se = list_entry(rq_list->next, struct sched_wrr_entity, run_list);
 	ret = wrr_task_of(se); 
-
-	rq->curr = ret;
-	set_curr_task_wrr(rq);
-
 	return ret;
 }
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 {
-	dequeue_task_wrr(rq, p);
-	enqueue_task_wrr(rq, p);
+	printk("sched_wrr: put_prev_task_wrr --- rq[%d]-curr[%d], p[%d]\n", rq->cpu, rq->curr->pid, p->pid);
+	if (rq->curr == p) {
+		dequeue_task_wrr(rq, p, 0);
+		enqueue_task_wrr(rq, p, 0);
+	}
 }
 
-/* SMP things */
+/* CPU management */
 static int find_lowest_rq(struct task_struct *p)
 {
 	int cpu;
@@ -147,12 +184,13 @@ static int find_lowest_rq(struct task_struct *p)
 	return best_cpu;
 }
 
-static int select_task_rq_wrr(struct task_struct *p)
+static int select_task_rq_wrr(struct task_struct *p, int sd_flag, int flags)
 {
 	struct task_struct *curr;
 	struct rq *rq;
 	int cpu;
 	int target;
+	printk("sched_wrr: select_task_rq_wrr --- p->pid[%d]\n", p->pid);
 
 	cpu = task_cpu(p);
 	if (p->nr_cpus_allowed == 1) return cpu;
@@ -172,27 +210,48 @@ static int select_task_rq_wrr(struct task_struct *p)
 	return cpu;
 }
 
-/*
-	TODO: CPU things 
-*/
-static void switched_from_wrr(struct rq *rq, struct task_struct *p)
+static void migrate_task_rq_wrr(struct task_struct *p, int next_cpu)
 {
+	struct rq *rq;
+	struct rq *next_rq;
+
+	rq = cpu_rq(task_cpu(p));
+	if (rq->curr == p) 
+		return;
+	next_rq = cpu_rq(next_cpu);
+	
+	dequeue_task_wrr(rq, p, 0);
+	enqueue_task_wrr(next_rq, p, 0);
 }
 
-static void switched_to_wrr(struct rq *rq, struct task_struct *p)
-{/* sched policy switched from other to wrr */
-	p->wrr.weight = 10;
-	p->wrr.time_slice = 10 * WRR_TIMESLICE;
-}
+static void pre_schedule_wrr(struct rq *this_rq, struct task_struct *task)
+{}
+static void post_schedule_wrr(struct rq *this_rq)
+{}
+static void task_waking_wrr(struct task_struct *task)
+{}
+static void task_woken_wrr(struct rq *this_rq, struct task_struct *task)
+{}
+
+static void set_cpus_allowed_wrr(struct task_struct *p, const struct cpumask *newmask)
+{}
+
+static void rq_online_wrr(struct rq *rq)
+{}
+static void rq_offline_wrr(struct rq *rq)
+{}
 
 /* runtime management */
+
 static void set_curr_task_wrr(struct rq *rq)
 {
 	struct task_struct *p;
+	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	p = rq->curr;
+	p = pick_next_task_wrr(rq);
 	p->wrr.exec_start = rq->clock_task; /* load current time to exec_time */
 	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
+	rq->curr = p;
 }
 
 static void update_curr_wrr(struct rq *rq)
@@ -210,14 +269,11 @@ static void update_curr_wrr(struct rq *rq)
 	if (time_before(se->exec_start + se->time_slice, now))
 		return;
 
-	yield_task_wrr(rq);
-	pick_next_task_wrr(rq);
+	put_prev_task_wrr(rq, rq->curr);
+	set_curr_task_wrr(rq);
 }
 
 static int is_migratable(struct rq *rq, struct task_struct *p) {
-	int cpu;
-	cpu = task_cpu(p);
-
 	if (p->nr_cpus_allowed == 1 || rq->curr == p) {
 		return 0;
 	} else {
@@ -238,11 +294,11 @@ static void load_balance(struct rq *rq){
 	unsigned int mweight;
 	struct task_struct *p;
 
+	balance_timestamp = rq->clock_task;
 	rcu_read_lock();
 	for_each_online_cpu(cpu) {
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
-		wrr->last_balancing = rq->clock_task;
 		//spin_lock(&weight_lock);
 		if (wrr->total_weight < min_weight) {
 			min_rq = rq;
@@ -277,17 +333,19 @@ static void load_balance(struct rq *rq){
 
 	if (mp == NULL) return;
 	
-	dequeue_task_wrr(max_rq, mp);
-	enqueue_task_wrr(min_rq, mp);
+	migrate_task_rq_wrr(mp, min_rq->cpu);
+//	dequeue_task_wrr(max_rq, mp, 0);
+//	enqueue_task_wrr(min_rq, mp, 0);
 
 }
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 {
+	printk("sched_wrr: yield_task_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
 	/* update current running task */
 	update_curr_wrr(rq);	
 	/* load balancing */
-	if (rq->clock_task - rq->wrr.last_balancing == LB_INTERVAL) {
+	if (rq->clock_task - balance_timestamp == LB_INTERVAL) {
 		load_balance(rq);
 	}
 }
@@ -298,9 +356,20 @@ static void task_fork_wrr(struct task_struct *p)
 	struct rq *rq;
 
 	p->wrr.weight = p->real_parent->wrr.weight;
-	cpu = select_task_rq_wrr(p);
+	cpu = select_task_rq_wrr(p, 0, 0);
 	rq = cpu_rq(cpu);
-	enqueue_task_wrr(rq, p);
+	enqueue_task_wrr(rq, p, 0);
+}
+
+static void switched_from_wrr(struct rq *rq, struct task_struct *p)
+{
+	return;
+}
+
+static void switched_to_wrr(struct rq *rq, struct task_struct *p)
+{/* sched policy switched from other to wrr */
+	p->wrr.weight = 10;
+	p->wrr.time_slice = 10 * WRR_TIMESLICE;
 }
 
 static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task) {
@@ -314,35 +383,32 @@ static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
 const struct sched_class wrr_sched_class = {
 /* TODO: delete functions we don't need in this project */
 	.next			= &fair_sched_class,
-	.enqueue_task		= enqueue_task_wrr,							//o
-	.dequeue_task		= dequeue_task_wrr,							//o
-	.yield_task		= yield_task_wrr,									//o
+	.enqueue_task		= enqueue_task_wrr,							//o	o
+	.dequeue_task		= dequeue_task_wrr,							//o	o
+	.yield_task		= yield_task_wrr,									//o	o
 //	.yield_to_task		= yield_to_task_wrr,
 
-	.check_preempt_curr	= check_preempt_curr_wrr,		//o
+	.check_preempt_curr	= check_preempt_curr_wrr,		//o	o
 
-	.pick_next_task		= pick_next_task_wrr,					//o
-	.put_prev_task		= put_prev_task_wrr,					//o
+	.pick_next_task		= pick_next_task_wrr,					//o	o
+	.put_prev_task		= put_prev_task_wrr,					//o	o
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,					//o
-/*
-	.set_cpus_allowed       = set_cpus_allowed_wrr,
+	.set_cpus_allowed    = set_cpus_allowed_wrr,
 	.rq_online		= rq_online_wrr,
 	.rq_offline		= rq_offline_wrr,
 	.pre_schedule		= pre_schedule_wrr,
 	.post_schedule		= post_schedule_wrr,
-*/	
-	.switched_from		= switched_from_wrr,
-	.switched_to		= switched_to_wrr,							//o
 
 #endif
 
-	.set_curr_task          = set_curr_task_wrr,
-	.task_tick		= task_tick_wrr,
-	.task_fork		= task_fork_wrr,
+	.set_curr_task          = set_curr_task_wrr,		//o	o
+	.task_tick		= task_tick_wrr,									//o
+	.task_fork		= task_fork_wrr,									//o
 
-	.switched_to		= switched_to_wrr,
+	.switched_from		= switched_from_wrr,					//o
+	.switched_to		= switched_to_wrr,							//o
 
-	.get_rr_interval	= get_rr_interval_wrr,
+	.get_rr_interval	= get_rr_interval_wrr,				//o
 };
