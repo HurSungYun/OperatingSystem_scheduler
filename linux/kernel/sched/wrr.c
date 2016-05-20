@@ -4,11 +4,12 @@
 */
 
 #include "sched.h"
+#include <linux/jiffies.h>
 #include <linux/slab.h>
 #include <linux/cpumask.h>
 #include <linux/rcupdate.h>
-#define WRR_TIMESLICE (10 * HZ / 1000)
-#define LB_INTERVAL (2000 * HZ / 1000)
+#define WRR_TIMESLICE (10 * 1000000)
+#define LB_INTERVAL (2000 * 1000000)
 
 const struct sched_class wrr_sched_class;
 u64 balance_timestamp;
@@ -39,7 +40,7 @@ static void print_wrr_rq(struct rq *rq)
 extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq)
 {
 	printk("sched_wrr: init_wrr_rq\n");
-	balance_timestamp = rq->clock_task;
+	balance_timestamp = rq->clock;
 	spin_lock_init(&wrr_rq->lock);
 	wrr_rq->total_weight = 0;
 	wrr_rq->nr_running = 0;
@@ -152,7 +153,9 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 	if (is_wrr_rq_empty(&rq->wrr))
 		return NULL;
 	se = list_entry(rq_list->next, struct sched_wrr_entity, run_list);
-	ret = wrr_task_of(se); 
+	ret = wrr_task_of(se);
+	ret->wrr.exec_start = rq->clock;
+	ret->wrr.time_slice = ret->wrr.weight * WRR_TIMESLICE;
 	return ret;
 }
 
@@ -262,12 +265,10 @@ static void set_curr_task_wrr(struct rq *rq)
 
 	struct task_struct *p;
 
-	p = pick_next_task_wrr(rq);
-	if (p == NULL) 
-		return;
 	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 
-	p->wrr.exec_start = rq->clock_task; /* load current time to exec_time */
+	p = rq->curr;
+	p->wrr.exec_start = rq->clock; /* load current time to exec_time */
 	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
 	rq->curr = p;
 }
@@ -280,12 +281,12 @@ static void update_curr_wrr(struct rq *rq)
 	u64 now;
 	printk("sched_wrr: update_curr_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	now = rq->clock_task; 
+	now = rq->clock; 
 	curr = rq->curr;
 	se = &curr->wrr;
-	delta_exec = rq->clock_task - se->exec_start;
+	delta_exec = rq->clock - se->exec_start;
 
-	printk("exec_start: %lld, time_slice: %lld, now: %lld", se->exec_start, se->time_slice, now);
+	printk("exec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
 	if (time_before(se->exec_start + se->time_slice, now))
 		return;
 
@@ -315,7 +316,7 @@ static void load_balance(struct rq *rq){
 	struct task_struct *p;
 	printk("sched_wrr: load_balance --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	balance_timestamp = rq->clock_task;
+	balance_timestamp = rq->clock;
 	rcu_read_lock();
 	for_each_online_cpu(cpu) {
 		rq = cpu_rq(cpu);
@@ -366,7 +367,7 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 	/* update current running task */
 	update_curr_wrr(rq);	
 	/* load balancing */
-	if (rq->clock_task - balance_timestamp == LB_INTERVAL) {
+	if (rq->clock - balance_timestamp == LB_INTERVAL) {
 		load_balance(rq);
 	}
 }
@@ -393,6 +394,7 @@ static void switched_from_wrr(struct rq *rq, struct task_struct *p)
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {/* sched policy switched from other to wrr */
 	printk("sched_wrr: switched_to_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
+	
 	p->wrr.weight = 10;
 	p->wrr.time_slice = 10 * WRR_TIMESLICE;
 }
