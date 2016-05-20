@@ -2853,6 +2853,7 @@ void scheduler_tick(void)
 	raw_spin_lock(&rq->lock);
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
+//	printk("sched_wrr: scheduler_tick-- curr->policy[%d]", curr->policy);
 	curr->sched_class->task_tick(rq, curr, 0);
 	raw_spin_unlock(&rq->lock);
 
@@ -3992,6 +3993,8 @@ static int __sched_setscheduler(struct task_struct *p, int policy,
 	const struct sched_class *prev_class;
 	struct rq *rq;
 	int reset_on_fork;
+	if (p != NULL && policy == SCHED_WRR)
+		printk("sched_wrr: sched_setscheduler - pid[%d]-policy[%d]\n",p->pid, policy);
 
 	/* may grab non-irq protected spin_locks */
 	BUG_ON(in_interrupt());
@@ -4126,8 +4129,11 @@ recheck:
 
 	if (running)
 		p->sched_class->set_curr_task(rq);
-	if (on_rq)
+	if (on_rq) {
+		if (p->policy == SCHED_WRR)
+			printk("sched_wrr: setscheduler --- entering enqueue\n");
 		enqueue_task(rq, p, 0);
+	}
 
 	check_class_changed(rq, p, prev_class, oldprio);
 	task_rq_unlock(rq, p, &flags);
