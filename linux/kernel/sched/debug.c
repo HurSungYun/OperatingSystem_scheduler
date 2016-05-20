@@ -174,7 +174,6 @@ void print_wrr_rq(struct seq_file *m, int cpu, struct wrr_rq *wrr_rq){
 	printk("\nwrr_rq[%d] running#: %d\n", cpu, wrr_rq->nr_running);	
 	SEQ_printf(m, "\nwrr_rq[%d]:\n", cpu);	
 }
-*/
 void print_wrr_rq(int cpu, struct rq *rq){
 
 	struct wrr_rq *wrr_rq;
@@ -192,9 +191,8 @@ void print_wrr_rq(int cpu, struct rq *rq){
     p = container_of(se, struct task_struct, wrr);
 		printk("pid#: %d weight#: %d\n", p->pid, se->weight);
 	}
-
 }
-
+*/
 void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 {
 	s64 MIN_vruntime = -1, min_vruntime, max_vruntime = -1,

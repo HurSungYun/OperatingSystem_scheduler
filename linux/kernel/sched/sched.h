@@ -229,10 +229,10 @@ extern void sched_offline_group(struct task_group *tg);
 extern void sched_move_task(struct task_struct *tsk);
 
 struct wrr_rq {  
+	spinlock_t lock;
 	unsigned long total_weight; /* total weight */
 	unsigned int nr_running;
-	struct sched_wrr_entity run_queue;	/* dummy head for list_head */
-	u64 last_balancing;
+	struct list_head run_queue;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

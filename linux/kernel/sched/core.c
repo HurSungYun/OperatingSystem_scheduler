@@ -113,32 +113,33 @@ DEFINE_SPINLOCK(weight_lock);
 int sched_setweight(pid_t pid, int weight)
 {
 	struct task_struct *p;
+	int delta;
+	struct rq *rq;
 	kuid_t rootUid = KUIDT_INIT(0);
 
 	if (weight < 0) 
 		return -EINVAL;
+	
 	if (!uid_eq(current->cred->euid, rootUid) && current->pid != pid)
 		return -EINVAL;
-
+	
 	if (pid == 0) {
 		/* set calling process weight */
 		p = current;
-		spin_lock(&weight_lock);
-		p->wrr.weight = weight;
-		spin_unlock(&weight_lock);
-
-		return 0;
 	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (p == NULL)
 			return -EINVAL;
+		
 		if (p->policy != SCHED_WRR) 
 			return -EINVAL;
-		
-		spin_lock(&weight_lock);
-		p->wrr.weight = weight;
-		spin_unlock(&weight_lock);
 	}
+	
+	delta = p->wrr.weight - weight;
+	p->wrr.weight = weight;
+	rq = cpu_rq(task_cpu(p));
+	rq->wrr.total_weight += delta;
+
 	return 0;
 }
 
@@ -148,15 +149,10 @@ int sched_setweight(pid_t pid, int weight)
  */
 int sched_getweight(pid_t pid) {
 	struct task_struct *p;
-	int weight;
 
 	if (pid == 0) {
-		/* set calling process weight */
-		spin_lock(&weight_lock);
-		weight = current->wrr.weight;
-		spin_unlock(&weight_lock);
+		return current->wrr.weight;
 
-		return weight;
 	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (p == NULL)
@@ -164,11 +160,7 @@ int sched_getweight(pid_t pid) {
 		if (p->policy != SCHED_WRR) 
 			return -EINVAL;
 		
-		spin_lock(&weight_lock);
-		weight = p->wrr.weight;
-		spin_unlock(&weight_lock);
-		
-		return weight;
+		return p->wrr.weight;
 	}
 }
 
@@ -3958,7 +3950,9 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	p->normal_prio = normal_prio(p);
 	/* we are holding p->pi_lock already */
 	p->prio = rt_mutex_getprio(p);
-	if (rt_prio(p->prio)) {
+	if (policy == SCHED_WRR) {
+		p->sched_class = &wrr_sched_class;
+	} else if (rt_prio(p->prio)) {
 		p->sched_class = &rt_sched_class;
 #ifdef CONFIG_SCHED_HMP
 		if (!cpumask_empty(&hmp_slow_cpu_mask))
@@ -4012,7 +4006,7 @@ recheck:
 
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
 				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+				policy != SCHED_IDLE && policy != SCHED_WRR)
 			return -EINVAL;
 	}
 
