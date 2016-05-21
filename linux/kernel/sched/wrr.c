@@ -33,7 +33,8 @@ static void print_wrr_rq(struct rq *rq)
 
 	list_for_each_entry(se, wrr_rq_list(&rq->wrr), run_list) {
 		p = container_of(se, struct task_struct, wrr);
-		printk("\t\t\twrr_rq[%d][%d]: pid: %d, weight: %d\n", rq->cpu, count++, p->pid, p->wrr.weight);
+		printk("\t\t\twrr_rq[%d][%d]: pid: %d, weight: %d, time_slice: %lld\n", 
+				rq->cpu, count++, p->pid, p->wrr.weight, p->wrr.time_slice);
 	}
 }
 
@@ -63,7 +64,7 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
-
+/*
 	list_for_each(list, rq_list) {
 		if (list == se_list) break;
 		if (list->next == rq_list) {
@@ -77,11 +78,17 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		wrr->total_weight += se->weight;
 		wrr->nr_running++;
 	}
-/*	
-	list_add_tail(se_list, rq_list);
-	wrr->total_weight += se->weight;
-	wrr->nr_running++;
 */
+
+	if (rq->curr == p) {
+		list_add(se_list, rq_list);
+		wrr->total_weight += se->weight;
+		wrr->nr_running++;
+	} else {
+		list_add_tail(se_list, rq_list);
+		wrr->total_weight += se->weight;
+		wrr->nr_running++;
+	}
 	print_wrr_rq(rq);
 }
 
@@ -99,7 +106,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	se_list = &se->run_list;
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(&rq->wrr);
-	
+/*	
 	list_for_each_safe(list, next, rq_list){
 		if (list == se_list) {
 			list_del(se_list);
@@ -107,11 +114,11 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 			wrr->nr_running--;
 		}
 	}
-/*
+*/
 	list_del(se_list);
 	wrr->total_weight -= se->weight;
 	wrr->nr_running--;
-*/
+
 	print_wrr_rq(rq);
 }
 
@@ -270,7 +277,6 @@ static void set_curr_task_wrr(struct rq *rq)
 	p = rq->curr;
 	p->wrr.exec_start = rq->clock; /* load current time to exec_time */
 	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
-	rq->curr = p;
 }
 
 static void update_curr_wrr(struct rq *rq)
@@ -286,12 +292,11 @@ static void update_curr_wrr(struct rq *rq)
 	se = &curr->wrr;
 	delta_exec = rq->clock - se->exec_start;
 
-	printk("exec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
+	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
 	if (time_before(se->exec_start + se->time_slice, now))
 		return;
 
-	put_prev_task_wrr(rq, rq->curr);
-	set_curr_task_wrr(rq);
+	resched_task(curr);
 }
 
 static int is_migratable(struct rq *rq, struct task_struct *p) {

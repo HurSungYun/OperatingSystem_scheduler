@@ -117,6 +117,7 @@ int sched_setweight(pid_t pid, int weight)
 	struct rq *rq;
 	kuid_t rootUid = KUIDT_INIT(0);
 
+	printk("sched_wrr: setweight start\n");
 	if (weight < 0) 
 		return -EINVAL;
 	
@@ -139,6 +140,7 @@ int sched_setweight(pid_t pid, int weight)
 	p->wrr.weight = weight;
 	rq = cpu_rq(task_cpu(p));
 	rq->wrr.total_weight += delta;
+	printk("sched_wrr: setweight end\n");
 
 	return 0;
 }
@@ -150,7 +152,9 @@ int sched_setweight(pid_t pid, int weight)
 int sched_getweight(pid_t pid) {
 	struct task_struct *p;
 
+	printk("sched_wrr: getweight start\n");
 	if (pid == 0) {
+	printk("sched_wrr: getweight end\n");
 		return current->wrr.weight;
 
 	} else {
@@ -160,6 +164,7 @@ int sched_getweight(pid_t pid) {
 		if (p->policy != SCHED_WRR) 
 			return -EINVAL;
 		
+	printk("sched_wrr: getweight end\n");
 		return p->wrr.weight;
 	}
 }
@@ -4140,6 +4145,8 @@ recheck:
 
 	rt_mutex_adjust_pi(p);
 
+	if (p->policy == SCHED_WRR)
+		printk("sched_wrr: setscheduler end\n");
 	return 0;
 }
 
