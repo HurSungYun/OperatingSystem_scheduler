@@ -80,15 +80,9 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	}
 */
 
-	if (rq->curr == p) {
-		list_add(se_list, rq_list);
-		wrr->total_weight += se->weight;
-		wrr->nr_running++;
-	} else {
-		list_add_tail(se_list, rq_list);
-		wrr->total_weight += se->weight;
-		wrr->nr_running++;
-	}
+	list_add_tail(se_list, rq_list);
+	wrr->total_weight += se->weight;
+	wrr->nr_running++;
 	print_wrr_rq(rq);
 }
 
@@ -115,7 +109,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		}
 	}
 */
-	list_del(se_list);
+	list_del_init(se_list);
 	wrr->total_weight -= se->weight;
 	wrr->nr_running--;
 
@@ -151,9 +145,6 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 	struct sched_wrr_entity *se;
 	struct task_struct *ret;
 
-	if (rq->curr->policy != SCHED_WRR) 
-		return NULL;
-	
 	printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 	
 	rq_list = wrr_rq_list(&rq->wrr);
@@ -161,18 +152,20 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 		return NULL;
 	se = list_entry(rq_list->next, struct sched_wrr_entity, run_list);
 	ret = wrr_task_of(se);
+
 	ret->wrr.exec_start = rq->clock;
 	ret->wrr.time_slice = ret->wrr.weight * WRR_TIMESLICE;
+
 	return ret;
 }
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 {
-	printk("sched_wrr: put_prev_task_wrr --- rq[%d]-curr[%d], p[%d]\n", rq->cpu, rq->curr->pid, p->pid);
+	//printk("sched_wrr: put_prev_task_wrr --- rq[%d]-curr[%d], p[%d]\n", rq->cpu, rq->curr->pid, p->pid);
 	if (rq->curr == p && !is_wrr_rq_empty(&rq->wrr)) {
-		printk("sched_wrr: put_prev_task_wrr --- entering dequeue\n");
+		//printk("sched_wrr: put_prev_task_wrr --- entering dequeue\n");
 		dequeue_task_wrr(rq, p, 0);
-		printk("sched_wrr: put_prev_task_wrr --- entering enqueue\n");
+		//printk("sched_wrr: put_prev_task_wrr --- entering enqueue\n");
 		enqueue_task_wrr(rq, p, 0);
 	}
 }
@@ -269,7 +262,6 @@ static void rq_offline_wrr(struct rq *rq)
 
 static void set_curr_task_wrr(struct rq *rq)
 {
-
 	struct task_struct *p;
 
 	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
