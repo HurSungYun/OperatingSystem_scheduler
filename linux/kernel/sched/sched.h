@@ -231,7 +231,6 @@ extern void sched_move_task(struct task_struct *tsk);
 struct wrr_rq {  
 	spinlock_t lock;
 	unsigned long total_weight; /* total weight */
-	unsigned int nr_running;
 	struct list_head run_queue;
 };
 

@@ -26,12 +26,12 @@ static inline bool is_wrr_rq_empty(struct wrr_rq *rq)
 
 static void print_wrr_rq(struct rq *rq)
 {
-	struct sched_wrr_entity *se;
+	struct sched_wrr_entity *se, *n;
 	struct task_struct *p;
 	int count = 0;
-	printk("sched_wrr: print runqueue[%d] running#: %d\n", rq->cpu, rq->wrr.nr_running);
+	printk("sched_wrr: print runqueue[%d]", rq->cpu);
 
-	list_for_each_entry(se, wrr_rq_list(&rq->wrr), run_list) {
+	list_for_each_entry_safe(se, n, wrr_rq_list(&rq->wrr), run_list) {
 		p = container_of(se, struct task_struct, wrr);
 		printk("\t\t\twrr_rq[%d][%d]: pid: %d, weight: %d, time_slice: %lld\n", 
 				rq->cpu, count++, p->pid, p->wrr.weight, p->wrr.time_slice);
@@ -44,7 +44,6 @@ extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq)
 	balance_timestamp = rq->clock;
 	spin_lock_init(&wrr_rq->lock);
 	wrr_rq->total_weight = 0;
-	wrr_rq->nr_running = 0;
 	INIT_LIST_HEAD(&wrr_rq->run_queue);
 }
 
@@ -64,25 +63,8 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
-/*
-	list_for_each(list, rq_list) {
-		if (list == se_list) break;
-		if (list->next == rq_list) {
-			list_add_tail(se_list, rq_list);
-			wrr->total_weight += se->weight;
-			wrr->nr_running++;
-		}
-	}
-	if (is_wrr_rq_empty(wrr)) {
-		list_add_tail(se_list, rq_list);
-		wrr->total_weight += se->weight;
-		wrr->nr_running++;
-	}
-*/
-
 	list_add_tail(se_list, rq_list);
 	wrr->total_weight += se->weight;
-	wrr->nr_running++;
 	print_wrr_rq(rq);
 }
 
@@ -100,19 +82,9 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	se_list = &se->run_list;
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(&rq->wrr);
-/*	
-	list_for_each_safe(list, next, rq_list){
-		if (list == se_list) {
-			list_del(se_list);
-			wrr->total_weight -= se->weight;
-			wrr->nr_running--;
-		}
-	}
-*/
+
 	list_del_init(se_list);
 	wrr->total_weight -= se->weight;
-	wrr->nr_running--;
-
 	print_wrr_rq(rq);
 }
 
@@ -145,7 +117,7 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 	struct sched_wrr_entity *se;
 	struct task_struct *ret;
 
-	printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
+	//printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 	
 	rq_list = wrr_rq_list(&rq->wrr);
 	if (is_wrr_rq_empty(&rq->wrr))
@@ -164,9 +136,9 @@ static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 	//printk("sched_wrr: put_prev_task_wrr --- rq[%d]-curr[%d], p[%d]\n", rq->cpu, rq->curr->pid, p->pid);
 	if (rq->curr == p && !is_wrr_rq_empty(&rq->wrr)) {
 		//printk("sched_wrr: put_prev_task_wrr --- entering dequeue\n");
-		dequeue_task_wrr(rq, p, 0);
+		list_del_init(&(p->wrr.run_list));
 		//printk("sched_wrr: put_prev_task_wrr --- entering enqueue\n");
-		enqueue_task_wrr(rq, p, 0);
+		list_add_tail(wrr_rq_list(&rq->wrr), &(p->wrr.run_list));
 	}
 }
 
@@ -285,7 +257,7 @@ static void update_curr_wrr(struct rq *rq)
 	delta_exec = rq->clock - se->exec_start;
 
 	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
-	if (time_before(se->exec_start + se->time_slice, now))
+	if (time_after(se->exec_start + se->time_slice, now))
 		return;
 
 	resched_task(curr);
@@ -307,7 +279,7 @@ static void load_balance(struct rq *rq){
 	struct rq *max_rq = rq;
 	struct wrr_rq *wrr;
 	struct list_head* list;
-	struct sched_wrr_entity *se;
+	struct sched_wrr_entity *se, *n;
 	struct task_struct *mp; /* migrating task */
 	unsigned int mweight;
 	struct task_struct *p;
@@ -338,7 +310,7 @@ static void load_balance(struct rq *rq){
 	mweight = 0;
 	list = wrr_rq_list(&max_rq->wrr);
 
-	list_for_each_entry(se, list, run_list) {
+	list_for_each_entry_safe(se, n, list, run_list) {
 		p = wrr_task_of(se);
 		//spin_lock(&weight_lock);
 		if (is_migratable(max_rq, p) &&
@@ -365,7 +337,7 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 	update_curr_wrr(rq);	
 	/* load balancing */
 	if (rq->clock - balance_timestamp == LB_INTERVAL) {
-		load_balance(rq);
+		//load_balance(rq);
 	}
 }
 
