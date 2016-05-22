@@ -3135,6 +3135,8 @@ need_resched:
 		slp_store_task_history(cpu, prev);
 #endif
 		context_switch(rq, prev, next); /* unlocks the rq */
+
+		
 		/*
 		 * The context switch have flipped the stack from under us
 		 * and restored the local variables which were saved when

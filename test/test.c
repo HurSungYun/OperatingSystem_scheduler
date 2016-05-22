@@ -23,12 +23,13 @@ int main(int argc, char* argv[])
 	printf("set weight: %d\n", syscall(SET_WEIGHT, id, 1));
 	printf("get weight: %d\n", syscall(GET_WEIGHT, id));
 
-	int count = 1000;
+	int count = 20000;
 	while (count-->0) {
 		printf("%d\n", count);
 	}
 
-	printf("set scheduler -> cfs: %d\n", syscall(SET_SCHEDULER, id, SCHED_NORMAL, &param));
+	//printf("set scheduler -> cfs: %d\n", syscall(SET_SCHEDULER, id, SCHED_NORMAL, &param));
+	printf("Done\n");
 
 	return 0;
 }
