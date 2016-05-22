@@ -96,13 +96,14 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
+	struct list_head* next_curr = se_list->next;
 	list_del_init(se_list);
 
 	if (wrr_task_of(se) == wrr->curr) {
 		if (is_wrr_rq_empty(wrr)) wrr->curr = NULL;
 		else {
-			if (se_list->next == rq_list) se_list = rq_list;
-			wrr->curr =	wrr_task_of(list_entry(se_list->next, struct sched_wrr_entity, run_list));
+			if (next_curr == rq_list) se_list = rq_list;
+			wrr->curr =	wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 		}
 	}
 	wrr->total_weight -= se->weight;
@@ -124,8 +125,10 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 
 	//printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 	
-	curr->wrr.exec_start = jiffies;
-	curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
+	if (curr->policy == SCHED_WRR) {
+		curr->wrr.exec_start = jiffies;
+		curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
+	}
 
 	return curr;
 }
@@ -206,23 +209,6 @@ static void migrate_task_rq_wrr(struct task_struct *p, int next_cpu)
 	enqueue_task_wrr(next_rq, p, 0);
 }
 
-static void pre_schedule_wrr(struct rq *this_rq, struct task_struct *task)
-{}
-static void post_schedule_wrr(struct rq *this_rq)
-{}
-static void task_waking_wrr(struct task_struct *task)
-{}
-static void task_woken_wrr(struct rq *this_rq, struct task_struct *task)
-{}
-
-static void set_cpus_allowed_wrr(struct task_struct *p, const struct cpumask *newmask)
-{}
-
-static void rq_online_wrr(struct rq *rq)
-{}
-static void rq_offline_wrr(struct rq *rq)
-{}
-
 /* runtime management */
 
 static void set_curr_task_wrr(struct rq *rq)
@@ -248,10 +234,11 @@ static void update_curr(struct rq *rq)
 	se = &curr->wrr;
 
 	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
-	if (time_before(se->exec_start + se->time_slice, now))
+	if (time_after(se->exec_start + se->time_slice, now))
 		return;
 
-	resched_task(curr);
+	printk("------------------------resched!\n");
+	set_tsk_need_resched(curr);
 }
 
 static int is_migratable(struct rq *rq, struct task_struct *p) {
@@ -345,12 +332,6 @@ static void task_fork_wrr(struct task_struct *p)
 	enqueue_task_wrr(rq, p, 0);
 }
 
-static void switched_from_wrr(struct rq *rq, struct task_struct *p)
-{
-	printk("sched_wrr: switched_from_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
-	return;
-}
-
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {/* sched policy switched from other to wrr */
 	printk("sched_wrr: switched_to_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
@@ -366,14 +347,43 @@ static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
 		return -EINVAL;
 	}
 }
+static void pre_schedule_wrr(struct rq *this_rq, struct task_struct *task)
+{}
+static void post_schedule_wrr(struct rq *this_rq)
+{}
+static void task_waking_wrr(struct task_struct *task)
+{}
+static void task_woken_wrr(struct rq *this_rq, struct task_struct *task)
+{}
+
+static void set_cpus_allowed_wrr(struct task_struct *p, const struct cpumask *newmask)
+{}
+
+static void rq_online_wrr(struct rq *rq)
+{}
+static void rq_offline_wrr(struct rq *rq)
+{}
+
+static void prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio) {
+}
+
+static void switched_from_wrr(struct rq *rq, struct task_struct *p) {
+}
+
+static void yield_task_wrr(struct rq *rq) {
+}
+
+static bool yield_to_task_wrr(struct rq *rq, struct task_struct* p, bool preempt) {
+	return true;
+}
 
 const struct sched_class wrr_sched_class = {
 /* TODO: delete functions we don't need in this project */
 	.next			= &fair_sched_class,
 	.enqueue_task		= enqueue_task_wrr,							//o	o
 	.dequeue_task		= dequeue_task_wrr,							//o	o
-//	.yield_task		= yield_task_wrr,									//o	o
-//	.yield_to_task		= yield_to_task_wrr,
+	.yield_task = yield_task_wrr,
+	.yield_to_task = yield_to_task_wrr,
 
 	.check_preempt_curr	= check_preempt_curr_wrr,		//o	o
 
@@ -382,11 +392,14 @@ const struct sched_class wrr_sched_class = {
 
 #ifdef CONFIG_SMP
 	.select_task_rq		= select_task_rq_wrr,					//o
-	.set_cpus_allowed    = set_cpus_allowed_wrr,
-	.rq_online		= rq_online_wrr,
-	.rq_offline		= rq_offline_wrr,
-	.pre_schedule		= pre_schedule_wrr,
-	.post_schedule		= post_schedule_wrr,
+  .set_cpus_allowed    = set_cpus_allowed_wrr,
+  .pre_schedule           = pre_schedule_wrr,
+  .post_schedule          = post_schedule_wrr,
+	.task_waking						= task_waking_wrr,
+	.task_woken							= task_woken_wrr,
+  .rq_online              = rq_online_wrr,
+  .rq_offline             = rq_offline_wrr,
+
 
 #endif
 
@@ -394,8 +407,10 @@ const struct sched_class wrr_sched_class = {
 	.task_tick		= task_tick_wrr,									//o
 	.task_fork		= task_fork_wrr,									//o
 
-	.switched_from		= switched_from_wrr,					//o
 	.switched_to		= switched_to_wrr,							//o
+	.switched_from 	= switched_from_wrr,
+	.prio_changed 	= prio_changed_wrr,
+
 
 	.get_rr_interval	= get_rr_interval_wrr,				//o
 };
