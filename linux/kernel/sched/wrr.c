@@ -132,22 +132,7 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)
 {
-	/*
-	struct task_struct* curr = rq->wrr.curr;
-	struct sched_wrr_entity* se = &curr->wrr;
-	struct list_head* se_list;
-	struct list_head *rq_list;
-	struct wrr_rq* wrr;
-
-	if (p != curr) return;
-
-	se_list = &se->run_list;
-	rq_list = wrr_rq_list(&rq->wrr);
-	wrr = &rq->wrr;
-
-	if (se_list->next == rq_list) se_list = rq_list;
-	wrr->curr =	wrr_task_of(list_entry(se_list->next, struct sched_wrr_entity, run_list));
-	*/
+	return;
 }
 
 /* CPU management */
