@@ -39,18 +39,18 @@ static void print_wrr_rq(struct rq *rq)
 	struct sched_wrr_entity *se, *n;
 	struct task_struct *p;
 	int count = 0;
-	printk("sched_wrr: print runqueue[%d]", rq->cpu);
+//	printk("sched_wrr: print runqueue[%d]", rq->cpu);
 
 	list_for_each_entry_safe(se, n, wrr_rq_list(&rq->wrr), run_list) {
 		p = container_of(se, struct task_struct, wrr);
-		printk("\t\t\twrr_rq[%d][%d]: pid: %d, weight: %d, time_slice: %ld\n", 
-				rq->cpu, count++, p->pid, p->wrr.weight, p->wrr.time_slice);
+//		printk("\t\t\twrr_rq[%d][%d]: pid: %d, weight: %d, time_slice: %ld\n", 
+//				rq->cpu, count++, p->pid, p->wrr.weight, p->wrr.time_slice);
 	}
 }
 
 extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq)
 {
-	printk("sched_wrr: init_wrr_rq\n");
+//	printk("sched_wrr: init_wrr_rq\n");
 	balance_timestamp = jiffies;
 	wrr_rq->total_weight = 0;
 	INIT_LIST_HEAD(&wrr_rq->run_queue);
@@ -65,7 +65,7 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct sched_wrr_entity *se;
 	struct list_head *se_list;
 	struct list_head *rq_list;
-	printk("sched_wrr: enqueue_task_wrr --- pid: %d\n", p->pid);
+//	printk("sched_wrr: enqueue_task_wrr --- pid: %d\n", p->pid);
 	
 	se = &p->wrr;
 	se_list = &se->run_list;
@@ -77,7 +77,7 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	if (wrr->curr == NULL) wrr->curr = wrr_task_of(se);
 
 	wrr->total_weight += se->weight;
-	print_wrr_rq(rq);
+//	print_wrr_rq(rq);
 	p->on_rq = 1;
 }
 
@@ -89,7 +89,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct list_head *next;
 	struct wrr_rq *wrr;
 	struct sched_wrr_entity *se;
-	printk("sched_wrr: dequeue_task_wrr --- pid: %d\n", p->pid);
+//	printk("sched_wrr: dequeue_task_wrr --- pid: %d\n", p->pid);
 
 	se = &p->wrr;
 	se_list = &se->run_list;
@@ -107,7 +107,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		}
 	}
 	wrr->total_weight -= se->weight;
-	print_wrr_rq(rq);
+//	print_wrr_rq(rq);
 	p->on_rq = 0;
 }
 
@@ -146,13 +146,13 @@ static int find_lowest_rq(struct task_struct *p)
 	int best_cpu;
 	unsigned long best_weight;
 	struct wrr_rq *wrr;
-	printk("sched_wrr: find_lowest_rq --- p[%d]\n", p->pid);
+//	printk("sched_wrr: find_lowest_rq --- p[%d]\n", p->pid);
 
 	if (p->nr_cpus_allowed == 1)
 		return -1; /* No other targets possible */
 
 	cpu = task_cpu(p);
-	best_cpu = -1;
+	best_cpu = cpu;
 	best_weight = p->wrr.weight;
 
 	for_each_online_cpu(cpu) {
@@ -173,7 +173,7 @@ static int select_task_rq_wrr(struct task_struct *p, int sd_flag, int flags)
 	struct rq *rq;
 	int cpu;
 	int target;
-	printk("sched_wrr: select_task_rq_wrr --- p->pid[%d]\n", p->pid);
+//	printk("sched_wrr: select_task_rq_wrr --- p->pid[%d]\n", p->pid);
 
 	cpu = task_cpu(p);
 	if (p->nr_cpus_allowed == 1) return cpu;
@@ -203,9 +203,9 @@ static void migrate_task_rq_wrr(struct task_struct *p, int next_cpu)
 		return;
 	next_rq = cpu_rq(next_cpu);
 	
-	printk("sched_wrr: migrate_task_rq_wrr --- entering dequeue\n");
+//	printk("sched_wrr: migrate_task_rq_wrr --- entering dequeue\n");
 	dequeue_task_wrr(rq, p, 0);
-	printk("sched_wrr: migrate_task_rq_wrr --- entering enqueue\n");
+//	printk("sched_wrr: migrate_task_rq_wrr --- entering enqueue\n");
 	enqueue_task_wrr(next_rq, p, 0);
 }
 
@@ -215,7 +215,7 @@ static void set_curr_task_wrr(struct rq *rq)
 {
 	struct task_struct *p;
 
-	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
+//	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 
 	p = rq->curr;
 	p->wrr.exec_start = jiffies; /* load current time to exec_time */
@@ -227,17 +227,17 @@ static void update_curr(struct rq *rq)
 	struct task_struct *curr;
 	struct sched_wrr_entity *se;
 	unsigned long now;
-	printk("sched_wrr: update_curr_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
+//	printk("sched_wrr: update_curr_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
 	now = jiffies; 
 	curr = rq->curr;
 	se = &curr->wrr;
 
-	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
-	if (time_after(se->exec_start + se->time_slice, now))
+//	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
+	if (time_after_eq(se->exec_start + se->time_slice, now))
 		return;
 
-	printk("------------------------resched!\n");
+//	printk("------------------------resched!\n");
 	set_tsk_need_resched(curr);
 }
 
@@ -261,7 +261,7 @@ static void load_balance(struct rq *rq){
 	struct task_struct *mp; /* migrating task */
 	unsigned int mweight;
 	struct task_struct *p;
-	printk("sched_wrr: load_balance --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
+//	printk("sched_wrr: load_balance --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
 	balance_timestamp = rq->clock;
 	rcu_read_lock();
@@ -310,7 +310,7 @@ static void load_balance(struct rq *rq){
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 {
-	printk("sched_wrr: task_tick_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
+//	printk("sched_wrr: task_tick_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
 	/* update current running task */
 	update_curr(rq);	
 	/* load balancing */
@@ -324,17 +324,17 @@ static void task_fork_wrr(struct task_struct *p)
 	int cpu;
 	struct rq *rq;
 
-	printk("sched_wrr: task_fork_wrr --- p->pid[%d]\n", p->pid);
+//	printk("sched_wrr: task_fork_wrr --- p->pid[%d]\n", p->pid);
 	p->wrr.weight = p->real_parent->wrr.weight;
 	cpu = select_task_rq_wrr(p, 0, 0);
 	rq = cpu_rq(cpu);
-	printk("sched_wrr: task_fork_wrr --- entering enqueue\n");
+//	printk("sched_wrr: task_fork_wrr --- entering enqueue\n");
 	enqueue_task_wrr(rq, p, 0);
 }
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 {/* sched policy switched from other to wrr */
-	printk("sched_wrr: switched_to_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
+//	printk("sched_wrr: switched_to_wrr --- rq[%d], p->pid[%d]\n", rq->cpu, p->pid);
 	
 	p->wrr.weight = 10;
 	p->wrr.time_slice = 10 * WRR_TIMESLICE;

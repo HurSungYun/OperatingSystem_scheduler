@@ -117,7 +117,7 @@ int sched_setweight(pid_t pid, int weight)
 	struct rq *rq;
 	kuid_t rootUid = KUIDT_INIT(0);
 
-	printk("sched_wrr: setweight start\n");
+//	printk("sched_wrr: setweight start\n");
 	if (weight < 0) 
 		return -EINVAL;
 	
@@ -140,7 +140,7 @@ int sched_setweight(pid_t pid, int weight)
 	p->wrr.weight = weight;
 	rq = cpu_rq(task_cpu(p));
 	rq->wrr.total_weight += delta;
-	printk("sched_wrr: setweight end\n");
+//	printk("sched_wrr: setweight end\n");
 
 	return 0;
 }
@@ -152,9 +152,9 @@ int sched_setweight(pid_t pid, int weight)
 int sched_getweight(pid_t pid) {
 	struct task_struct *p;
 
-	printk("sched_wrr: getweight start\n");
+//	printk("sched_wrr: getweight start\n");
 	if (pid == 0) {
-	printk("sched_wrr: getweight end\n");
+//	printk("sched_wrr: getweight end\n");
 		return current->wrr.weight;
 
 	} else {
@@ -164,7 +164,7 @@ int sched_getweight(pid_t pid) {
 		if (p->policy != SCHED_WRR) 
 			return -EINVAL;
 		
-	printk("sched_wrr: getweight end\n");
+//	printk("sched_wrr: getweight end\n");
 		return p->wrr.weight;
 	}
 }
@@ -1798,8 +1798,10 @@ void sched_fork(struct task_struct *p)
 	 * Revert to default priority/policy on fork if requested.
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
-		if (task_has_rt_policy(p)) {
-			p->policy = SCHED_NORMAL;
+		if (p->policy == SCHED_WRR) {
+		}
+		else if (task_has_rt_policy(p)) {
+			p->policy = SCHED_NORMAL; //TODO:
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
@@ -1816,8 +1818,8 @@ void sched_fork(struct task_struct *p)
 	}
 
 	if (!rt_prio(p->prio))
-		p->sched_class = &fair_sched_class;
-
+		p->sched_class = &wrr_sched_class; //TODO:
+else 
 	if (p->sched_class->task_fork)
 		p->sched_class->task_fork(p);
 
@@ -3015,7 +3017,7 @@ pick_next_task(struct rq *rq)
 	 * the fair class we can call that function directly:
 	 */
 	if (likely(rq->nr_running == rq->cfs.h_nr_running)) {
-		p = fair_sched_class.pick_next_task(rq);
+		p = fair_sched_class.pick_next_task(rq); //TODO:
 		if (likely(p))
 			return p;
 	}
@@ -3767,7 +3769,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (rt_prio(prio))
 		p->sched_class = &rt_sched_class;
 	else
-		p->sched_class = &fair_sched_class;
+		p->sched_class = &fair_sched_class;//TODO:
 
 	p->prio = prio;
 
@@ -3972,7 +3974,7 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 #endif
 	}
 	else
-		p->sched_class = &fair_sched_class;
+		p->sched_class = &wrr_sched_class;//TODO:
 	set_load_weight(p);
 }
 
@@ -4000,8 +4002,8 @@ static int __sched_setscheduler(struct task_struct *p, int policy,
 	const struct sched_class *prev_class;
 	struct rq *rq;
 	int reset_on_fork;
-	if (p != NULL && policy == SCHED_WRR)
-		printk("sched_wrr: sched_setscheduler - pid[%d]-policy[%d]\n",p->pid, policy);
+//	if (p != NULL && policy == SCHED_WRR)
+//		printk("sched_wrr: sched_setscheduler - pid[%d]-policy[%d]\n",p->pid, policy);
 
 	/* may grab non-irq protected spin_locks */
 	BUG_ON(in_interrupt());
@@ -4137,8 +4139,8 @@ recheck:
 	if (running)
 		p->sched_class->set_curr_task(rq);
 	if (on_rq) {
-		if (p->policy == SCHED_WRR)
-			printk("sched_wrr: setscheduler --- entering enqueue\n");
+//		if (p->policy == SCHED_WRR)
+//			printk("sched_wrr: setscheduler --- entering enqueue\n");
 		enqueue_task(rq, p, 0);
 	}
 
@@ -4147,8 +4149,8 @@ recheck:
 
 	rt_mutex_adjust_pi(p);
 
-	if (p->policy == SCHED_WRR)
-		printk("sched_wrr: setscheduler end\n");
+//	if (p->policy == SCHED_WRR)
+//		printk("sched_wrr: setscheduler end\n");
 	return 0;
 }
 
@@ -7225,7 +7227,7 @@ void __init sched_init(void)
 	/*
 	 * During early bootup we pretend to be a normal task:
 	 */
-	current->sched_class = &fair_sched_class;
+	current->sched_class = &wrr_sched_class;//TODO:
 
 #ifdef CONFIG_SMP
 	zalloc_cpumask_var(&sched_domains_tmpmask, GFP_NOWAIT);
@@ -7296,7 +7298,7 @@ static void normalize_task(struct rq *rq, struct task_struct *p)
 	on_rq = p->on_rq;
 	if (on_rq)
 		dequeue_task(rq, p, 0);
-	__setscheduler(rq, p, SCHED_NORMAL, 0);
+	__setscheduler(rq, p, SCHED_WRR, 0); //TODO:
 	if (on_rq) {
 		enqueue_task(rq, p, 0);
 		resched_task(rq->curr);
