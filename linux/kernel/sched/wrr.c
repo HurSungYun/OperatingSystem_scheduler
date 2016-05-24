@@ -8,8 +8,8 @@
 #include <linux/slab.h>
 #include <linux/cpumask.h>
 #include <linux/rcupdate.h>
-#define WRR_TIMESLICE (10 * 1000000)
-#define LB_INTERVAL (2000 * 1000000)
+#define WRR_TIMESLICE (10 * HZ / 1000)
+#define LB_INTERVAL (2 * HZ)
 
 const struct sched_class wrr_sched_class;
 unsigned long balance_timestamp;
@@ -72,9 +72,9 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
-	list_add_tail(se_list, rq_list);
-
 	if (wrr->curr == NULL) wrr->curr = wrr_task_of(se);
+	
+	list_add_tail(se_list, rq_list);
 
 	wrr->total_weight += se->weight;
 //	print_wrr_rq(rq);
@@ -96,16 +96,18 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
-	struct list_head* next_curr = se_list->next;
-	list_del_init(se_list);
+	struct list_head* next_curr;
+	next_curr = se_list->next;
 
+	list_del_init(se_list);
+	
 	if (wrr_task_of(se) == wrr->curr) {
-		if (is_wrr_rq_empty(wrr)) wrr->curr = NULL;
-		else {
-			if (next_curr == rq_list) se_list = rq_list;
-			wrr->curr =	wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
-		}
+		if (next_curr == rq_list) next_curr = next_curr->next;
+
+		if (next_curr == rq_list) wrr->curr = NULL;
+		else wrr->curr =	wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 	}
+
 	wrr->total_weight -= se->weight;
 //	print_wrr_rq(rq);
 	p->on_rq = 0;
@@ -217,6 +219,7 @@ static void set_curr_task_wrr(struct rq *rq)
 
 //	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 
+	if(rq->curr == NULL) return;
 	p = rq->curr;
 	p->wrr.exec_start = jiffies; /* load current time to exec_time */
 	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
@@ -230,12 +233,13 @@ static void update_curr(struct rq *rq)
 //	printk("sched_wrr: update_curr_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
 	now = jiffies; 
+	if(rq->curr == NULL) return;
 	curr = rq->curr;
 	se = &curr->wrr;
 
 //	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
-	if (time_after_eq(se->exec_start + se->time_slice, now))
-		return;
+//	if (time_after_eq(se->exec_start + se->time_slice, now))
+//		return;
 
 //	printk("------------------------resched!\n");
 	set_tsk_need_resched(curr);
@@ -326,10 +330,10 @@ static void task_fork_wrr(struct task_struct *p)
 
 //	printk("sched_wrr: task_fork_wrr --- p->pid[%d]\n", p->pid);
 	p->wrr.weight = p->real_parent->wrr.weight;
-	cpu = select_task_rq_wrr(p, 0, 0);
-	rq = cpu_rq(cpu);
+//	cpu = select_task_rq_wrr(p, 0, 0);
+//	rq = cpu_rq(cpu);
 //	printk("sched_wrr: task_fork_wrr --- entering enqueue\n");
-	enqueue_task_wrr(rq, p, 0);
+//	enqueue_task_wrr(rq, p, 0);
 }
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
@@ -341,11 +345,11 @@ static void switched_to_wrr(struct rq *rq, struct task_struct *p)
 }
 
 static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task) {
-	if (task->policy == SCHED_WRR) {
+//	if (task->policy == SCHED_WRR) {
 		return task->wrr.time_slice;
-	} else {
-		return -EINVAL;
-	}
+//	} else {
+//		return -EINVAL;
+//	}
 }
 static void pre_schedule_wrr(struct rq *this_rq, struct task_struct *task)
 {}
