@@ -66,15 +66,25 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct list_head *se_list;
 	struct list_head *rq_list;
 //	printk("sched_wrr: enqueue_task_wrr --- pid: %d\n", p->pid);
+
+	struct list_head *curr_list;
+	struct sched_wrr_entity *curr_se;
 	
 	se = &p->wrr;
 	se_list = &se->run_list;
 	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
-	if (wrr->curr == NULL) wrr->curr = wrr_task_of(se);
+	if (wrr->curr == NULL) {
+		wrr->curr = wrr_task_of(se);
+		list_add_tail(se_list, rq_list);
+	}
+	else{
+		curr_se = &wrr->curr->wrr;
+		curr_list = &curr_se->run_list;
 	
-	list_add_tail(se_list, rq_list);
+		list_add_tail(se_list, curr_list);
+	}
 
 	wrr->total_weight += se->weight;
 //	print_wrr_rq(rq);
