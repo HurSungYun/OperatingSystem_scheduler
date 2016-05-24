@@ -103,7 +103,6 @@
 
 /*set_weight, get_weight system calls*/
 
-DEFINE_SPINLOCK(weight_lock);
 
 /* Set the SCHED_WRR weight of process, as identified by 'pid'.
  * If 'pid' is 0, set the weight for the calling process.
@@ -129,17 +128,20 @@ int sched_setweight(pid_t pid, int weight)
 		p = current;
 	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
-		if (p == NULL)
-			return -EINVAL;
-		
-		if (p->policy != SCHED_WRR) 
-			return -EINVAL;
 	}
+	if (p == NULL)
+		return -EINVAL;
+
+	if (p->policy != SCHED_WRR) 
+		return -EINVAL;
 	
+//	spin_lock(&(rq->wrr.lock));
 	delta = p->wrr.weight - weight;
+	if (!uid_eq(current->cred->euid, rootUid) && delta < 0) return -EINVAL;
 	p->wrr.weight = weight;
 	rq = cpu_rq(task_cpu(p));
-	rq->wrr.total_weight += delta;
+	rq->wrr.total_weight -= delta;
+//	spin_unlock(&(rq->wrr.lock));
 //	printk("sched_wrr: setweight end\n");
 
 	return 0;
@@ -155,21 +157,120 @@ int sched_getweight(pid_t pid) {
 //	printk("sched_wrr: getweight start\n");
 	if (pid == 0) {
 //	printk("sched_wrr: getweight end\n");
-		return current->wrr.weight;
+		p = current;
 
 	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
-		if (p == NULL)
-			return -EINVAL;
-		if (p->policy != SCHED_WRR) 
-			return -EINVAL;
 		
 //	printk("sched_wrr: getweight end\n");
-		return p->wrr.weight;
 	}
+	if (p == NULL)
+		return -EINVAL;
+	if (p->policy != SCHED_WRR) 
+		return -EINVAL;
+
+	struct rq* rq = cpu_rq(task_cpu(p));
+	//spin_lock(&(rq->wrr.lock));
+	int ret = p->wrr.weight;
+	//spin_unlock(&(rq->wrr.lock));
+
+	return ret;
 }
 
 /*set_weight, get_weight system calls*/
+/*load_balance*/
+
+static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
+	if (task_running(rq, p)) 
+		return 0;
+	
+	if (!cpumask_test_cpu(dest_cpu, tsk_cpus_allowed(p))) 
+		return 0;
+
+	return 1;
+}
+
+#define LB_INTERVAL (2 * HZ)
+DEFINE_SPINLOCK(balance_lock);
+unsigned long balance_timestamp = 0;
+
+static void load_balance_wrr(struct rq *rq){
+	int cpu;
+	unsigned int max_weight = rq->wrr.total_weight;
+	unsigned int min_weight = rq->wrr.total_weight;
+	struct rq *min_rq = rq;
+	struct rq *max_rq = rq;
+	struct rq *temp;
+	struct wrr_rq *wrr;
+	struct list_head* list;
+	struct sched_wrr_entity *se, *n;
+	struct task_struct *mp; /* migrating task */
+	unsigned int mweight;
+	struct task_struct *p;
+	unsigned long now;
+
+	spin_lock(&balance_lock);
+
+	now = jiffies;
+	if (time_after(now, balance_timestamp + LB_INTERVAL) || balance_timestamp == 0) {
+		spin_unlock(&balance_lock);
+		return;
+	}
+
+	balance_timestamp = now;
+	
+	spin_unlock(&balance_lock);
+
+	/*find min, max rq*/
+	rcu_read_lock();
+	for_each_online_cpu(cpu) {
+		temp = cpu_rq(cpu);
+		wrr = &temp->wrr;
+
+		//spin_lock(&wrr->lock);
+		if (wrr->total_weight < min_weight) {
+			min_rq = temp;
+			min_weight = wrr->total_weight;
+		}
+		if (wrr->total_weight > max_weight) {
+			max_rq = temp;
+			max_weight = wrr->total_weight;
+		}
+		//spin_unlock(&wrr->lock);
+	}
+	rcu_read_unlock();
+
+	if (min_rq == max_rq) return;
+
+	/*move task*/
+	
+	double_rq_lock(max_rq, min_rq);
+
+	mweight = 0;
+	mp = NULL;
+	list = &max_rq->wrr.run_queue;
+
+	//spin_lock(&(max_rq->wrr.lock));
+	list_for_each_entry_safe(se, n, list, run_list) {
+		p = container_of(se, struct task_struct, wrr);
+		if (is_migratable(max_rq, p, min_rq->cpu) &&
+				se->weight > mweight &&
+				min_weight + se->weight < max_weight - se->weight) {
+			mp = p;
+			mweight = se->weight;
+		}
+	}
+	//spin_unlock(&(max_rq->wrr.lock));
+
+	if (mp == NULL) return;
+
+	deactivate_task(max_rq, mp, 0);
+	mp->sched_class->migrate_task_rq(mp, min_rq->cpu);
+	activate_task(min_rq, mp, 0);
+	
+	double_rq_unlock(min_rq, max_rq);	
+}
+/*load_balance*/
 
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
@@ -2860,7 +2961,6 @@ void scheduler_tick(void)
 	raw_spin_lock(&rq->lock);
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
-//	printk("sched_wrr: scheduler_tick-- curr->policy[%d]", curr->policy);
 	curr->sched_class->task_tick(rq, curr, 0);
 	raw_spin_unlock(&rq->lock);
 
@@ -2869,6 +2969,7 @@ void scheduler_tick(void)
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq, cpu);
+	load_balance_wrr(rq);
 #endif
 	rq_last_tick_reset(rq);
 }

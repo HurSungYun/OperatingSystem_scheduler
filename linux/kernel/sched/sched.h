@@ -232,6 +232,7 @@ struct wrr_rq {
 	unsigned long total_weight; /* total weight */
 	struct list_head run_queue;
 	struct task_struct* curr;
+	spinlock_t lock;
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
