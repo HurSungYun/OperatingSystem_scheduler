@@ -191,9 +191,10 @@ static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
 	return 1;
 }
 
-
+#define LB_INTERVAL (2 * HZ)
 DEFINE_SPINLOCK(balance_lock);
 unsigned long balance_timestamp = 0;
+
 static void load_balance_wrr(struct rq *rq){
 	int cpu;
 	unsigned int max_weight = rq->wrr.total_weight;
@@ -248,11 +249,11 @@ static void load_balance_wrr(struct rq *rq){
 
 	mweight = 0;
 	mp = NULL;
-	list = wrr_rq_list(&max_rq->wrr);
+	list = &max_rq->wrr.run_queue;
 
 	spin_lock(&(max_rq->wrr.lock));
 	list_for_each_entry_safe(se, n, list, run_list) {
-		p = wrr_task_of(se);
+		p = container_of(se, struct task_struct, wrr);
 		if (is_migratable(max_rq, p, min_rq->cpu) &&
 				se->weight > mweight &&
 				min_weight + se->weight < max_weight - se->weight) {
