@@ -216,7 +216,7 @@ static void load_balance_wrr(struct rq *rq){
 	spin_lock(&balance_lock);
 
 	now = jiffies;
-	if (time_after(now, balance_timestamp + LB_INTERVAL)) {
+	if (time_before(now, balance_timestamp + LB_INTERVAL)) {
 		spin_unlock(&balance_lock);
 		return;
 	}
@@ -266,13 +266,19 @@ static void load_balance_wrr(struct rq *rq){
 	}
 	//spin_unlock(&(max_rq->wrr.lock));
 
-	if (mp == NULL) return;
+//	double_rq_unlock(max_rq, min_rq);
+//	return;
+
+	if (mp == NULL) {
+		double_rq_unlock(max_rq, min_rq);
+		return;
+	}
 
 	deactivate_task(max_rq, mp, 0);
 	set_task_cpu(mp, min_rq->cpu);
 	activate_task(min_rq, mp, 0);
-	
-	double_rq_unlock(min_rq, max_rq);	
+
+	double_rq_unlock(max_rq, min_rq);
 }
 /*load_balance*/
 
@@ -2973,7 +2979,7 @@ void scheduler_tick(void)
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq, cpu);
-//	load_balance_wrr(rq);
+	load_balance_wrr(rq);
 #endif
 	rq_last_tick_reset(rq);
 }
@@ -7344,7 +7350,7 @@ void __init sched_init(void)
 	init_sched_fair_class();
 
 	scheduler_running = 1;
-	balance_timestamp = jiffies;
+	balance_timestamp = jiffies + 10 * HZ;
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
