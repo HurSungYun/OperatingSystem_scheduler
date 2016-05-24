@@ -236,6 +236,7 @@ static void migrate_task_rq_wrr(struct task_struct *p, int next_cpu)
 
 static void set_curr_task_wrr(struct rq *rq)
 {
+/*
 	struct task_struct *p;
 
 //	printk("sched_wrr: set_curr_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
@@ -245,7 +246,7 @@ static void set_curr_task_wrr(struct rq *rq)
 //	p->wrr.exec_start = jiffies;
 //	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
 	p->wrr.time_slice = p->wrr.weight;
-
+*/
 }
 
 static void update_curr(struct rq *rq)
@@ -262,20 +263,23 @@ static void update_curr(struct rq *rq)
   rq_list = wrr_rq_list(wrr_rq);
 
 
-	if(rq->curr == NULL) return;
-	curr = rq->curr;
+	if(rq->wrr.curr == NULL) return;
+	if(rq->curr != rq->wrr.curr) {
+		printk("iyaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
+		return;
+	}
+	curr = rq->wrr.curr;
 	se = &curr->wrr;
-//	se_list = &se->run_list;
+	se_list = &se->run_list;
 	
 	se->time_slice--;
 
 	if(se->time_slice <= 0){
-		if(!is_wrr_rq_empty(wrr_rq)) {
-		//	if(se_list->next != se_list->prev) {
-		//	next = se_list->next;
-		//	if (next == &wrr_rq->run_queue) next = next->next;
-		//	rq->curr = wrr_task_of(list_entry(next, struct sched_wrr_entity, run_list));
-			list_move_tail(&se->run_list, &wrr_rq->run_queue);
+		if(se_list->next != se_list->prev) {
+			next = se_list->next;
+			if (next == &wrr_rq->run_queue) next = next->next;
+			wrr_rq->curr = wrr_task_of(list_entry(next, struct sched_wrr_entity, run_list));
+			//list_move_tail(&se->run_list, &wrr_rq->run_queue);
 			set_tsk_need_resched(curr);
 		}
 	}
