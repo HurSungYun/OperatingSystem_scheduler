@@ -3974,7 +3974,7 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 #endif
 	}
 	else
-		p->sched_class = &wrr_sched_class;//TODO:
+		p->sched_class = &fair_sched_class;//TODO:
 	set_load_weight(p);
 }
 

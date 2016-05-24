@@ -8,7 +8,7 @@
 #include <linux/slab.h>
 #include <linux/cpumask.h>
 #include <linux/rcupdate.h>
-#define WRR_TIMESLICE (10 * HZ / 1000)
+#define WRR_TIMESLICE (HZ / 100)
 #define LB_INTERVAL (2 * HZ)
 
 const struct sched_class wrr_sched_class;
@@ -146,11 +146,8 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 	rq->wrr.curr = wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 
 	//printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
-	
-//	if (curr->policy == SCHED_WRR) {
-//		curr->wrr.exec_start = jiffies;
-//		curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
-//	}
+
+	rq->wrr.curr->wrr.time_slice = rq->wrr.curr->wrr.weight * WRR_TIMESLICE;
 
 	return rq->wrr.curr;
 }
@@ -241,28 +238,37 @@ static void set_curr_task_wrr(struct rq *rq)
 
 	if(rq->curr == NULL) return;
 	p = rq->curr;
-	p->wrr.exec_start = jiffies; /* load current time to exec_time */
-	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
+//	p->wrr.exec_start = jiffies; /* load current time to exec_time */
+//	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
+	p->wrr.time_slice = p->wrr.weight;
 }
 
 static void update_curr(struct rq *rq)
 {/* check curr task time_slice */
 	struct task_struct *curr;
 	struct sched_wrr_entity *se;
-	unsigned long now;
-//	printk("sched_wrr: update_curr_wrr --- rq[%d]-curr[%d]\n", rq->cpu, rq->curr->pid);
 
-	now = jiffies; 
+  struct list_head *rq_list;
+  struct list_head *list;
+  struct list_head *next;
+  struct wrr_rq *wrr_rq;
+
+  wrr_rq = &rq->wrr;
+  rq_list = wrr_rq_list(wrr_rq);
+
+
 	if(rq->curr == NULL) return;
 	curr = rq->curr;
 	se = &curr->wrr;
 
-//	printk("\t\t\texec_start: %lld, time_slice: %lld, now: %lld\n", se->exec_start, se->time_slice, now);
-//	if (time_after_eq(se->exec_start + se->time_slice, now))
-//		return;
+	se->time_slice--;
 
-//	printk("------------------------resched!\n");
-	set_tsk_need_resched(curr);
+	if(se->time_slice <= 0){
+		if(!is_wrr_rq_empty(wrr_rq)) {
+			list_move_tail(&se->run_list, &wrr_rq->run_queue);
+			set_tsk_need_resched(curr);
+		}
+	}
 }
 
 static int is_migratable(struct rq *rq, struct task_struct *p) {
@@ -350,6 +356,7 @@ static void task_fork_wrr(struct task_struct *p)
 
 //	printk("sched_wrr: task_fork_wrr --- p->pid[%d]\n", p->pid);
 	p->wrr.weight = p->real_parent->wrr.weight;
+	p->wrr.time_slice = p->wrr.weight;
 //	cpu = select_task_rq_wrr(p, 0, 0);
 //	rq = cpu_rq(cpu);
 //	printk("sched_wrr: task_fork_wrr --- entering enqueue\n");
