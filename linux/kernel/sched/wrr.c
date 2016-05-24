@@ -242,9 +242,10 @@ static void set_curr_task_wrr(struct rq *rq)
 
 	if(rq->curr == NULL) return;
 	p = rq->curr;
-//	p->wrr.exec_start = jiffies; /* load current time to exec_time */
+//	p->wrr.exec_start = jiffies;
 //	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
 	p->wrr.time_slice = p->wrr.weight;
+
 }
 
 static void update_curr(struct rq *rq)
@@ -253,7 +254,7 @@ static void update_curr(struct rq *rq)
 	struct sched_wrr_entity *se;
 
   struct list_head *rq_list;
-  struct list_head *list;
+  struct list_head *se_list;
   struct list_head *next;
   struct wrr_rq *wrr_rq;
 
@@ -264,11 +265,16 @@ static void update_curr(struct rq *rq)
 	if(rq->curr == NULL) return;
 	curr = rq->curr;
 	se = &curr->wrr;
-
+//	se_list = &se->run_list;
+	
 	se->time_slice--;
 
 	if(se->time_slice <= 0){
 		if(!is_wrr_rq_empty(wrr_rq)) {
+		//	if(se_list->next != se_list->prev) {
+		//	next = se_list->next;
+		//	if (next == &wrr_rq->run_queue) next = next->next;
+		//	rq->curr = wrr_task_of(list_entry(next, struct sched_wrr_entity, run_list));
 			list_move_tail(&se->run_list, &wrr_rq->run_queue);
 			set_tsk_need_resched(curr);
 		}
