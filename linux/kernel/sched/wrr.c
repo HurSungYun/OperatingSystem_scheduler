@@ -125,14 +125,24 @@ static struct task_struct *pick_next_task_wrr(struct rq *rq)
 
 	if (curr == NULL) return NULL;
 
+	struct list_head *rq_list = wrr_rq_list(&rq->wrr);
+	struct list_head *next_curr;
+	struct sched_wrr_entity *se = &curr->wrr;
+	next_curr = &se->run_list;
+	next_curr = next_curr->next;
+	
+	if(next_curr == rq_list) next_curr = next_curr->next;
+
+	rq->wrr.curr = wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
+
 	//printk("sched_wrr: pick_next_task_wrr --- rq[%d]-curr[%d]-policy[%d]\n", rq->cpu, rq->curr->pid, rq->curr->policy);
 	
-	if (curr->policy == SCHED_WRR) {
-		curr->wrr.exec_start = jiffies;
-		curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
-	}
+//	if (curr->policy == SCHED_WRR) {
+//		curr->wrr.exec_start = jiffies;
+//		curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
+//	}
 
-	return curr;
+	return rq->wrr.curr;
 }
 
 static void put_prev_task_wrr(struct rq *rq, struct task_struct *p)

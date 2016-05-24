@@ -32,6 +32,20 @@ static DEFINE_SPINLOCK(sched_debug_lock);
 		printk(x);			\
  } while (0)
 
+#ifdef CONFIG_SCHED_DEBUG
+void print_wrr_stats(struct seq_file *m, int cpu)
+{
+	struct wrr_rq *wrr_rq = &cpu_rq(cpu)->wrr;
+	struct sched_wrr_entity *wrr_se;
+	struct task_struct *tsk;
+	SEQ_printf(m, "\nwrr_rq[%d]\n", cpu);
+	list_for_each_entry(wrr_se, &wrr_rq->run_queue, run_list) {
+		tsk = container_of(wrr_se, struct task_struct, wrr);
+		SEQ_printf(m, "pid %d with weight %d\n", tsk->pid, tsk->wrr.weight);
+	}
+}
+#endif
+
 /*
  * Ease the printing of nsec fields:
  */
@@ -361,6 +375,7 @@ do {									\
 	spin_lock_irqsave(&sched_debug_lock, flags);
 	print_cfs_stats(m, cpu);
 	print_rt_stats(m, cpu);
+	print_wrr_stats(m, cpu);
 
 	rcu_read_lock();
 	print_rq(m, rq, cpu);
