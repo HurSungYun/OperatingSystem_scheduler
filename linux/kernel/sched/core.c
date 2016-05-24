@@ -185,7 +185,7 @@ int sched_getweight(pid_t pid) {
 /*load_balance*/
 
 static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
-	if (task_running(rq, p)) 
+	if (rq->curr == p) 
 		return 0;
 	
 	if (!cpumask_test_cpu(dest_cpu, tsk_cpus_allowed(p))) 
@@ -216,7 +216,7 @@ static void load_balance_wrr(struct rq *rq){
 	spin_lock(&balance_lock);
 
 	now = jiffies;
-	if (time_after(now, balance_timestamp + LB_INTERVAL) || balance_timestamp == 0) {
+	if (time_after(now, balance_timestamp + LB_INTERVAL)) {
 		spin_unlock(&balance_lock);
 		return;
 	}
@@ -7344,6 +7344,7 @@ void __init sched_init(void)
 	init_sched_fair_class();
 
 	scheduler_running = 1;
+	balance_timestamp = jiffies;
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
