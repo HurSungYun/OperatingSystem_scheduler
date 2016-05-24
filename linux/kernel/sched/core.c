@@ -103,7 +103,6 @@
 
 /*set_weight, get_weight system calls*/
 
-DEFINE_SPINLOCK(weight_lock);
 
 /* Set the SCHED_WRR weight of process, as identified by 'pid'.
  * If 'pid' is 0, set the weight for the calling process.
@@ -136,13 +135,13 @@ int sched_setweight(pid_t pid, int weight)
 	if (p->policy != SCHED_WRR) 
 		return -EINVAL;
 	
-	spin_lock(&(rq->wrr.lock));
+//	spin_lock(&(rq->wrr.lock));
 	delta = p->wrr.weight - weight;
 	if (!uid_eq(current->cred->euid, rootUid) && delta < 0) return -EINVAL;
 	p->wrr.weight = weight;
 	rq = cpu_rq(task_cpu(p));
 	rq->wrr.total_weight -= delta;
-	spin_unlock(&(rq->wrr.lock));
+//	spin_unlock(&(rq->wrr.lock));
 //	printk("sched_wrr: setweight end\n");
 
 	return 0;
@@ -171,9 +170,9 @@ int sched_getweight(pid_t pid) {
 		return -EINVAL;
 
 	struct rq* rq = cpu_rq(task_cpu(p));
-	spin_lock(&(rq->wrr.lock));
+	//spin_lock(&(rq->wrr.lock));
 	int ret = p->wrr.weight;
-	spin_unlock(&(rq->wrr.lock));
+	//spin_unlock(&(rq->wrr.lock));
 
 	return ret;
 }
@@ -228,7 +227,7 @@ static void load_balance_wrr(struct rq *rq){
 		temp = cpu_rq(cpu);
 		wrr = &temp->wrr;
 
-		spin_lock(&wrr->lock);
+		//spin_lock(&wrr->lock);
 		if (wrr->total_weight < min_weight) {
 			min_rq = temp;
 			min_weight = wrr->total_weight;
@@ -237,7 +236,7 @@ static void load_balance_wrr(struct rq *rq){
 			max_rq = temp;
 			max_weight = wrr->total_weight;
 		}
-		spin_unlock(&wrr->lock);
+		//spin_unlock(&wrr->lock);
 	}
 	rcu_read_unlock();
 
@@ -251,7 +250,7 @@ static void load_balance_wrr(struct rq *rq){
 	mp = NULL;
 	list = &max_rq->wrr.run_queue;
 
-	spin_lock(&(max_rq->wrr.lock));
+	//spin_lock(&(max_rq->wrr.lock));
 	list_for_each_entry_safe(se, n, list, run_list) {
 		p = container_of(se, struct task_struct, wrr);
 		if (is_migratable(max_rq, p, min_rq->cpu) &&
@@ -261,7 +260,7 @@ static void load_balance_wrr(struct rq *rq){
 			mweight = se->weight;
 		}
 	}
-	spin_unlock(&(max_rq->wrr.lock));
+	//spin_unlock(&(max_rq->wrr.lock));
 
 	if (mp == NULL) return;
 

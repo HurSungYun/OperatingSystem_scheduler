@@ -85,9 +85,9 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		list_add_tail(se_list, curr_list);
 	}
 
-	spin_lock(&wrr->lock);
+	//spin_lock(&wrr->lock);
 	wrr->total_weight += se->weight;
-	spin_unlock(&wrr->lock);
+	//spin_unlock(&wrr->lock);
 	//	print_wrr_rq(rq);
 	p->on_rq = 1;
 }
@@ -119,9 +119,9 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		else wrr->curr =	wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 	}
 
-	spin_lock(&wrr->lock);
+	//spin_lock(&wrr->lock);
 	wrr->total_weight -= se->weight;
-	spin_unlock(&wrr->lock);
+	//spin_unlock(&wrr->lock);
 //	print_wrr_rq(rq);
 	p->on_rq = 0;
 }
@@ -180,12 +180,12 @@ static int find_lowest_rq(struct task_struct *p)
 	for_each_online_cpu(cpu) {
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
-		spin_lock(&wrr->lock);
+		//spin_lock(&wrr->lock);
 		if(wrr->total_weight < best_weight) {
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
 		}
-		spin_unlock(&wrr->lock);
+		//spin_unlock(&wrr->lock);
 	}
 	return best_cpu;
 }
