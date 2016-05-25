@@ -48,7 +48,7 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct list_head *rq_list;
 	struct list_head *curr_list;
 	struct sched_wrr_entity *curr_se;
-	
+
 	wrr = &rq->wrr;
 
 	raw_spin_lock(&wrr->lock);
@@ -58,14 +58,21 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	rq_list = wrr_rq_list(wrr);
 
 
-	if (wrr->curr == NULL) { /* < If the list is currently empty, set the cursor to the newly added task and add the task to the list */
+	if (wrr->curr == NULL) {
+		/*
+		 * If the list is currently empty,
+		 * set the cursor to the newly added task and add the task to the list
+		 */
 		wrr->curr = p;
 		list_add_tail(se_list, rq_list);
-	}
-	else { /* < If the list is not empty, simply add the task right before the cursor */
+	} else {
+		/*
+		 * If the list is not empty,
+		 * simply add the task right before the cursor
+		 */
 		curr_se = &wrr->curr->wrr;
 		curr_list = &curr_se->run_list;
-	
+
 		list_add_tail(se_list, curr_list);
 	}
 
@@ -81,7 +88,7 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct list_head *rq_list;
 	struct wrr_rq *wrr;
 	struct sched_wrr_entity *se;
-	struct list_head* next_curr;
+	struct list_head *next_curr;
 
 	wrr = &rq->wrr;
 
@@ -95,11 +102,16 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 
 	list_del_init(se_list);
 
-	if (is_wrr_rq_empty(wrr)) { /* < If the run queue is empty, set the cursor to null */
+	if (is_wrr_rq_empty(wrr)) {
+		/* < If the run queue is empty, set the cursor to null */
 		wrr->curr = NULL;
-	}
-	else if (p == wrr->curr) { /* < Else if the deleting task is the task pointed by the cursor, update the cursor appropriately (considering the dummy head) */
-		if (next_curr == rq_list) next_curr = next_curr->next;
+	} else if (p == wrr->curr) {
+		/*
+		 * Else if the deleting task is the task pointed by the cursor,
+		 * update the cursor appropriately (considering the dummy head)
+		 */
+		if (next_curr == rq_list)
+			next_curr = next_curr->next;
 		wrr->curr = wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 	}
 
@@ -111,14 +123,15 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 
 static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int flags)
 {
-	return;	
+	return;
 }
 
 static struct task_struct *pick_next_task_wrr(struct rq *rq)
 {
-	struct task_struct* curr = rq->wrr.curr;
+	struct task_struct *curr = rq->wrr.curr;
 
-	if (curr == NULL) return NULL;
+	if (curr == NULL)
+		return NULL;
 	curr->wrr.time_slice = curr->wrr.weight * WRR_TIMESLICE;
 	/* Return the task pointed by the cursor with updated timeslice */
 	return curr;
@@ -142,7 +155,7 @@ static int find_lowest_rq(struct task_struct *p)
 	for_each_online_cpu(cpu) {
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
-		if((best_cpu == -1 || wrr->total_weight < best_weight) &&
+		if ((best_cpu == -1 || wrr->total_weight < best_weight) &&
 				cpumask_test_cpu(cpu, tsk_cpus_allowed(p))) {
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
@@ -158,14 +171,15 @@ static int select_task_rq_wrr(struct task_struct *p, int sd_flag, int flags)
 	int target;
 
 	cpu = task_cpu(p);
-	if (p->nr_cpus_allowed == 1) return cpu;
+	if (p->nr_cpus_allowed == 1)
+		return cpu;
 
 	rq = cpu_rq(cpu);
 
 	rcu_read_lock();
 
 	target = find_lowest_rq(p);
-	if (target != -1) 
+	if (target != -1)
 		cpu = target;
 	rcu_read_unlock();
 
@@ -186,28 +200,40 @@ static void update_curr(struct rq *rq)
   struct wrr_rq *wrr_rq;
 
   wrr_rq = &rq->wrr;
+
+	raw_spin_lock(&wrr_rq->lock);
+
   rq_list = wrr_rq_list(wrr_rq);
 
-	if(rq->wrr.curr == NULL) return;
+	if (rq->wrr.curr == NULL) {
+		raw_spin_unlock(&wrr_rq->lock);
+		return;
+	}
 	curr = rq->wrr.curr;
 	se = &curr->wrr;
 	se_list = &se->run_list;
-	
-	/* Decrease the time slice of currently running task until it reaches zero */
-	if (--se->time_slice) return;
 
-	if(se_list->next != se_list->prev) { /* < If more than one element in the list, move the cursor to the next task and resched */
+	/* Decrease the time slice of currently running task until it reaches zero */
+	if (--se->time_slice) {
+		raw_spin_unlock(&wrr_rq->lock);
+		return;
+	}
+
+	if (se_list->next != se_list->prev) { /* < If more than one element in the list, move the cursor to the next task and resched */
 		next = se_list->next;
-		if (next == &wrr_rq->run_queue) next = next->next;
+		if (next == &wrr_rq->run_queue)
+			next = next->next;
 		wrr_rq->curr = wrr_task_of(list_entry(next, struct sched_wrr_entity, run_list));
 		set_tsk_need_resched(curr);
-	}
-	else se->time_slice = se->weight * WRR_TIMESLICE; /* < Else, refill the current task's time_slice */
+	} else
+		se->time_slice = se->weight * WRR_TIMESLICE; /* < Else, refill the current task's time_slice */
+
+	raw_spin_unlock(&wrr_rq->lock);
 }
 
 static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 {
-	update_curr(rq);	
+	update_curr(rq);
 }
 
 static void task_fork_wrr(struct task_struct *p)
@@ -218,13 +244,14 @@ static void task_fork_wrr(struct task_struct *p)
 }
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
-{ 
+{
 	/* sched policy switched from other to wrr */
 	p->wrr.weight = 10;
 	p->wrr.time_slice = 10 * WRR_TIMESLICE;
 }
 
-static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task) {
+static unsigned int get_rr_interval_wrr(struct rq *rq, struct task_struct *task)
+{
 		return task->wrr.weight * WRR_TIMESLICE;
 }
 static void pre_schedule_wrr(struct rq *this_rq, struct task_struct *task)
@@ -244,16 +271,20 @@ static void rq_online_wrr(struct rq *rq)
 static void rq_offline_wrr(struct rq *rq)
 {}
 
-static void prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio) {
+static void prio_changed_wrr(struct rq *rq, struct task_struct *p, int oldprio)
+{
 }
 
-static void switched_from_wrr(struct rq *rq, struct task_struct *p) {
+static void switched_from_wrr(struct rq *rq, struct task_struct *p)
+{
 }
 
-static void yield_task_wrr(struct rq *rq) {
+static void yield_task_wrr(struct rq *rq)
+{
 }
 
-static bool yield_to_task_wrr(struct rq *rq, struct task_struct* p, bool preempt) {
+static bool yield_to_task_wrr(struct rq *rq, struct task_struct *p, bool preempt)
+{
 	return true;
 }
 

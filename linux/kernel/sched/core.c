@@ -114,17 +114,17 @@ int sched_setweight(pid_t pid, int weight)
 	struct task_struct *p;
 	int delta;
 	struct rq *rq;
-	kuid_t rootUid = KUIDT_INIT(0);
+	kuid_t root_uid = KUIDT_INIT(0);
 
 	if (weight < 1 || weight > 20) {
 		return -EINVAL;
 	}
-	
+
 	if (pid == 0) {
 		/* set calling process weight */
 		p = current;
 	} else {
-		if (!uid_eq(current->cred->euid, rootUid)) {
+		if (!uid_eq(current->cred->euid, root_uid)) {
 			return -EINVAL;
 		}
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
@@ -133,12 +133,11 @@ int sched_setweight(pid_t pid, int weight)
 		}
 	}
 
-	if (p->policy != SCHED_WRR){
+	if (p->policy != SCHED_WRR)
 		return -EINVAL;
-	}
-	
+
 	delta = p->wrr.weight - weight;
-	if (!uid_eq(current->cred->euid, rootUid) && delta < 0) {
+	if (!uid_eq(current->cred->euid, root_uid) && delta < 0) {
 		return -EINVAL;
 	}
 
@@ -153,12 +152,12 @@ int sched_setweight(pid_t pid, int weight)
  * If 'pid' is 0, return the weight of the calling process.
  * System call number 385.
  */
-int sched_getweight(pid_t pid) {
+int sched_getweight(pid_t pid)
+{
 	struct task_struct *p;
 
 	if (pid == 0) {
 		p = current;
-
 	} else {
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
 		if (p == NULL) {
@@ -175,11 +174,11 @@ int sched_getweight(pid_t pid) {
 /*set_weight, get_weight system calls*/
 /*load_balance*/
 
-static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
-	if (rq->curr == p) 
+static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu)
+{
+	if (rq->curr == p)
 		return 0;
-	
-	if (!cpumask_test_cpu(dest_cpu, tsk_cpus_allowed(p))) 
+	if (!cpumask_test_cpu(dest_cpu, tsk_cpus_allowed(p)))
 		return 0;
 
 	return 1;
@@ -187,11 +186,12 @@ static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
 
 #define LB_INTERVAL (2 * HZ)
 DEFINE_SPINLOCK(balance_lock);
-unsigned long balance_timestamp = 0;
+unsigned long balance_timestamp;
 
 /*load_balance*/
 
-static void load_balance_wrr(struct rq *rq){
+static void load_balance_wrr(struct rq *rq)
+{
 	int cpu;
 	unsigned int max_weight = rq->wrr.total_weight;
 	unsigned int min_weight = rq->wrr.total_weight;
@@ -199,7 +199,7 @@ static void load_balance_wrr(struct rq *rq){
 	struct rq *max_rq = rq;
 	struct rq *temp;
 	struct wrr_rq *wrr;
-	struct list_head* list;
+	struct list_head *list;
 	struct sched_wrr_entity *se, *n;
 	struct task_struct *mp; /* migrating task */
 	unsigned int mweight;
@@ -215,7 +215,7 @@ static void load_balance_wrr(struct rq *rq){
 	}
 
 	balance_timestamp = now;
-	
+
 	spin_unlock(&balance_lock);
 
 	/*find min, max rq*/
@@ -235,7 +235,8 @@ static void load_balance_wrr(struct rq *rq){
 	}
 	rcu_read_unlock();
 
-	if (min_rq == max_rq) return;
+	if (min_rq == max_rq)
+		return;
 
 	double_rq_lock(max_rq, min_rq);
 
