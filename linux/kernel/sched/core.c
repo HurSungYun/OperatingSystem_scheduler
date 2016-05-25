@@ -107,6 +107,7 @@
  * If 'pid' is 0, set the weight for the calling process
  * System call number 384
  */
+#define WRR_TIMESLICE (HZ / 100)
 
 int sched_setweight(pid_t pid, int weight)
 {
@@ -923,6 +924,7 @@ static void set_load_weight(struct task_struct *p)
 {
 	int prio = p->static_prio - MAX_RT_PRIO;
 	struct load_weight *load = &p->se.load;
+	struct sched_wrr_entity* se = &p->wrr;
 
 	/*
 	 * SCHED_IDLE tasks get minimal weight:
@@ -931,6 +933,11 @@ static void set_load_weight(struct task_struct *p)
 		load->weight = scale_load(WEIGHT_IDLEPRIO);
 		load->inv_weight = WMULT_IDLEPRIO;
 		return;
+	}
+
+	if (p->policy == SCHED_WRR) {
+		se->weight = 10;
+		se->time_slice = 10 * WRR_TIMESLICE;
 	}
 
 	load->weight = scale_load(prio_to_weight[prio]);
@@ -3859,10 +3866,12 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (running)
 		p->sched_class->put_prev_task(rq, p);
 
-	if (rt_prio(prio))
-		p->sched_class = &rt_sched_class;
-	else
-		p->sched_class = &fair_sched_class;
+	if (p->policy != SCHED_WRR) {
+		if (rt_prio(prio))
+			p->sched_class = &rt_sched_class;
+		else
+			p->sched_class = &fair_sched_class;
+	}
 
 	p->prio = prio;
 
