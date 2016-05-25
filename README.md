@@ -36,7 +36,7 @@ project 3: Weighted Round-Robin scheduler for linux kernel
 	
 # Lessons learned.
 
-* SUNG-YUN HUR:
+* SUNG-YUN HUR: It is really difficult to add new scheduler without guidance. Also, I realized I still have a lot of things to learn.
 * EUN-HYANG KIM:
 * YEON-WOO KIM: Fixing the kernel code is difficult and often dangerous; Always look and look again for possible bugs before testing.
 
