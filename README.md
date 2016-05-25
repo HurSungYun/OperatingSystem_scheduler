@@ -2,6 +2,7 @@ project 3: Weighted Round-Robin scheduler for linux kernel
 ==========================================================
 # High-level design and Implementation
 
+## Data Structures and Functions used in sched\_class
 * Two data structures are newly defined to support the newly defined policy in the kernel: wrr\_rq and sched\_wrr\_entity.
 
 * wrr\_rq is defined in kernel/sched/sched.h and consists of a run queue of sched\_wrr\_entity, a cursor to point to the current head of the circular list, and the sum of weight of the entities in the run queue. wrr\_rq structure is included in the existing struct rq to support wrr policy.
@@ -22,10 +23,20 @@ project 3: Weighted Round-Robin scheduler for linux kernel
 
 * task\_fork resets the timeslice of the forked task. switched\_to sets weight and timeslice to default value, and get\_rr\_interval returns the weight of the task multiplied by WRR\_TIMESLICE.
 
+## Load balancing algorithm
+
+* Load balancing between rqs are done in scheduler\_tick in core.c.
+
+* First, there exists a global variable to store the last balancing time. At each tick, cpus try to get the balance\_lock and check if it is time for load balancing. If it is, the cpu that checked the timestamp updates the timestamp, releases the balance\_lock and starts load balancing.
+
+* Load balancing starts with finding the MAX and MIN RQ. Afterwards, the locks for the two runqueues are acquired, and the function tries to find a migratable task with maximum weight. 
+
+* If there exists a migratable task, the function migrates the task to MIN RQ and unlocks those two locks.
+
 	
 # Lessons learned.
 
 * SUNG-YUN HUR:
 * EUN-HYANG KIM:
-* YEON-WOO KIM:
+* YEON-WOO KIM: Fixing the kernel code is difficult and often dangerous; Always look and look again for possible bugs before testing.
 
