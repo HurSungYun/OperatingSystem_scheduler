@@ -6,18 +6,21 @@
 
 int main(int argc, char* argv[])
 {
-	int i, flag, t;
+	int i, t, weight;
 	pid_t id = 0;
+	clock_t start, end;
 
-	if (argc != 2) {
-		printf("Need an argument");
+	if (argc != 3) {
+		printf("Need two arguments");
 		return -1;
 	}
 
 	t = atoi(argv[1]);
+	weight = atoi(argv[2]);
 
-	printf("set weight: %d\n", syscall(SCHED_SETWEIGHT, id, 100));
+	printf("set weight: %d\n", syscall(SCHED_SETWEIGHT, id, weight));
 
+	start = clock();
 	if (t == 1) printf("1\n");
 	while(t != 1){
 		for(i = 2; i <= t; i++){
@@ -29,6 +32,8 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("\n");
+	end = clock();
+	printf("execution time: %.7f\n", (double)(end-start)/1000);
 	return 0;
 }
 

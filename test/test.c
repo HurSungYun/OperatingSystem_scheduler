@@ -10,26 +10,13 @@
 
 int main(int argc, char* argv[])
 {
-	pid_t id = 0;
+	fork();
+	fork();
+	fork();
+	fork();
 
-	struct sched_param {
-		int sched_priority;
-	};
-	struct sched_param param;
-	param.sched_priority = 0;
-
-	printf("set scheduler -> wrr: %d\n", syscall(SET_SCHEDULER, id, SCHED_WRR, &param));
-	printf("set scheduler ends, start set weight\n");
-	printf("set weight: %d\n", syscall(SET_WEIGHT, id, 1));
-	printf("get weight: %d\n", syscall(GET_WEIGHT, id));
-
-	int count = 20000;
-	while (count-->0) {
-		printf("%d\n", count);
+	while (1) {
 	}
-
-	//printf("set scheduler -> cfs: %d\n", syscall(SET_SCHEDULER, id, SCHED_NORMAL, &param));
-	printf("Done\n");
 
 	return 0;
 }

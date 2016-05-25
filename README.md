@@ -33,10 +33,19 @@ project 3: Weighted Round-Robin scheduler for linux kernel
 
 * If there exists a migratable task, the function migrates the task to MIN RQ and unlocks those two locks.
 
+## Investigation
+
+We did the investigation with two test programs. One, test.c forks itself into 16 tasks and loops infinitely. The other one, trial.c does the trial division for 1874919423 which can be divided into 3, 13 and 48074857. The last number 4804867 makes the program run for a long time. By this test, we found several relations between program weight and execution time.
+
+* The execution time decreases when program weight increase. In our result, the relation between weight and execution time was t = 194393\*x^(-0.923) with r^2 value 0.982. 
+
+* We inferred the reason of the result. When the weight increases, the time slice for the process increases and the cpu runs our code for a longer time before it switches to other tasks. So the number of interrupts during the process is smaller and the waiting time is shorter.
+
+* With the result, we can see that our scheduler works well.
 	
 # Lessons learned.
 
 * SUNG-YUN HUR: It is really difficult to add new scheduler without guidance. Also, I realized I still have a lot of things to learn.
-* EUN-HYANG KIM:
+* EUN-HYANG KIM: Learned the structure of scheduler.
 * YEON-WOO KIM: Fixing the kernel code is difficult and often dangerous; Always look and look again for possible bugs before testing.
 
