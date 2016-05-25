@@ -53,7 +53,7 @@ extern void init_wrr_rq(struct wrr_rq *wrr_rq, struct rq *rq)
 	wrr_rq->total_weight = 0;
 	INIT_LIST_HEAD(&wrr_rq->run_queue);
 	wrr_rq->curr = NULL;
-	spin_lock_init(&wrr_rq->lock);
+	raw_spin_lock_init(&wrr_rq->lock);
 }
 
 /* run queue management */
@@ -67,10 +67,14 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct list_head *curr_list;
 	struct sched_wrr_entity *curr_se;
 	
+	wrr = &rq->wrr;
+
+	raw_spin_lock(&wrr->lock);
+
 	se = &p->wrr;
 	se_list = &se->run_list;
-	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
+
 
 	if (wrr->curr == NULL) {
 		wrr->curr = p;
@@ -83,10 +87,10 @@ static void enqueue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		list_add_tail(se_list, curr_list);
 	}
 
-	//spin_lock(&wrr->lock);
 	wrr->total_weight += se->weight;
-	//spin_unlock(&wrr->lock);
 	p->on_rq = 1;
+
+	raw_spin_unlock(&wrr->lock);
 }
 
 static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
@@ -97,9 +101,12 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 	struct sched_wrr_entity *se;
 	struct list_head* next_curr;
 
+	wrr = &rq->wrr;
+
+	raw_spin_lock(&wrr->lock);
+
 	se = &p->wrr;
 	se_list = &se->run_list;
-	wrr = &rq->wrr;
 	rq_list = wrr_rq_list(wrr);
 
 	next_curr = se_list->next;
@@ -114,10 +121,10 @@ static void dequeue_task_wrr(struct rq *rq, struct task_struct *p, int flags)
 		wrr->curr = wrr_task_of(list_entry(next_curr, struct sched_wrr_entity, run_list));
 	}
 
-	//spin_lock(&wrr->lock);
 	wrr->total_weight -= se->weight;
-	//spin_unlock(&wrr->lock);
 	p->on_rq = 0;
+
+	raw_spin_unlock(&wrr->lock);
 }
 
 static void check_preempt_curr_wrr(struct rq *rq, struct task_struct *p, int flags)
@@ -153,15 +160,15 @@ static int find_lowest_rq(struct task_struct *p)
 	if (p->nr_cpus_allowed == 1)
 		return -1; /* No other targets possible */
 	
-	cpu = task_cpu(p);
+	//cpu = task_cpu(p);
 	best_cpu = -1;
-	best_weight = 21;
+	best_weight;
 
 	for_each_online_cpu(cpu) {
 		rq = cpu_rq(cpu);
 		wrr = &rq->wrr;
 		//spin_lock(&wrr->lock);
-		if(wrr->total_weight < best_weight) {
+		if(best_cpu == -1 || wrr->total_weight < best_weight) {
 			best_cpu = cpu;
 			best_weight = wrr->total_weight;
 		}
@@ -184,8 +191,6 @@ static int select_task_rq_wrr(struct task_struct *p, int sd_flag, int flags)
 	rq = cpu_rq(cpu);
 
 	rcu_read_lock();
-	curr = ACCESS_ONCE(rq->curr);
-	if (curr == p) /**/;
 
 	target = find_lowest_rq(p);
 	if (target != -1) 
@@ -242,7 +247,7 @@ static void task_tick_wrr(struct rq *rq, struct task_struct *p, int queued)
 static void task_fork_wrr(struct task_struct *p)
 {/* child weight is the same as parent's */
 	p->wrr.weight = p->real_parent->wrr.weight;
-	p->wrr.time_slice = p->wrr.weight;
+	p->wrr.time_slice = p->wrr.weight * WRR_TIMESLICE;
 }
 
 static void switched_to_wrr(struct rq *rq, struct task_struct *p)
