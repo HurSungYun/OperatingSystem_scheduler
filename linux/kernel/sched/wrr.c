@@ -172,10 +172,6 @@ static int select_task_rq_wrr(struct task_struct *p, int sd_flag, int flags)
 	return cpu;
 }
 
-static void migrate_task_rq_wrr(struct task_struct *p, int next_cpu)
-{
-}
-
 static void set_curr_task_wrr(struct rq *rq)
 {
 }
