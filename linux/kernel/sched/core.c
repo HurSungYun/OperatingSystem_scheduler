@@ -117,27 +117,31 @@ int sched_setweight(pid_t pid, int weight)
 	kuid_t rootUid = KUIDT_INIT(0);
 
 //	printk("sched_wrr: setweight start\n");
-	if (weight < 0) 
+	if (weight < 1 || weight > 20){
 		return -EINVAL;
-	
-	if (!uid_eq(current->cred->euid, rootUid) && current->pid != pid)
-		return -EINVAL;
+	}
 	
 	if (pid == 0) {
 		/* set calling process weight */
 		p = current;
 	} else {
+		if (!uid_eq(current->cred->euid, rootUid)){
+			return -EINVAL;
+		}
 		p = pid_task(find_vpid(pid), PIDTYPE_PID);
 	}
+
 	if (p == NULL)
 		return -EINVAL;
 
-	if (p->policy != SCHED_WRR) 
+	if (p->policy != SCHED_WRR){
 		return -EINVAL;
+	}
 	
 //	spin_lock(&(rq->wrr.lock));
 	delta = p->wrr.weight - weight;
-	if (!uid_eq(current->cred->euid, rootUid) && delta < 0) return -EINVAL;
+	if (!uid_eq(current->cred->euid, rootUid) && delta < 0)
+		return -EINVAL;
 	p->wrr.weight = weight;
 	rq = cpu_rq(task_cpu(p));
 	rq->wrr.total_weight -= delta;
@@ -181,7 +185,7 @@ int sched_getweight(pid_t pid) {
 /*load_balance*/
 
 static int is_migratable(struct rq *rq, struct task_struct *p, int dest_cpu) {
-	if (task_running(rq, p)) 
+	if (rq->curr == p) 
 		return 0;
 	
 	if (!cpumask_test_cpu(dest_cpu, tsk_cpus_allowed(p))) 
@@ -212,7 +216,7 @@ static void load_balance_wrr(struct rq *rq){
 	spin_lock(&balance_lock);
 
 	now = jiffies;
-	if (time_after(now, balance_timestamp + LB_INTERVAL) || balance_timestamp == 0) {
+	if (time_before(now, balance_timestamp + LB_INTERVAL)) {
 		spin_unlock(&balance_lock);
 		return;
 	}
@@ -262,13 +266,19 @@ static void load_balance_wrr(struct rq *rq){
 	}
 	//spin_unlock(&(max_rq->wrr.lock));
 
-	if (mp == NULL) return;
+//	double_rq_unlock(max_rq, min_rq);
+//	return;
+
+	if (mp == NULL) {
+		double_rq_unlock(max_rq, min_rq);
+		return;
+	}
 
 	deactivate_task(max_rq, mp, 0);
-	mp->sched_class->migrate_task_rq(mp, min_rq->cpu);
+	set_task_cpu(mp, min_rq->cpu);
 	activate_task(min_rq, mp, 0);
-	
-	double_rq_unlock(min_rq, max_rq);	
+
+	double_rq_unlock(max_rq, min_rq);
 }
 /*load_balance*/
 
@@ -7340,6 +7350,7 @@ void __init sched_init(void)
 	init_sched_fair_class();
 
 	scheduler_running = 1;
+	balance_timestamp = jiffies;
 }
 
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
