@@ -1,0 +1,63 @@
+menu "Sensor support"
+
+config SENSORS
+	bool "Support for sensors"
+	help
+	  Say Y here to add support for accelerometer sensors
+
+if SENSORS
+
+config SENSORS_GP2A002
+	tristate "GP2A002 proximity sensor support"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for sharp Sensortec's
+	  proximity sensors GP2A002.
+
+config SENSORS_GP2A_HAS_REGULATOR
+	depends on I2C
+	tristate "sensor use connected regulator"
+	default n
+	help
+	  This option enable GP2A002 driver to parse connected regulators.
+
+config SENSORS_LEDA_EN_GPIO
+	depends on I2C
+	tristate "LEDA_EN controlled by GPIO"
+	default n
+	help
+	  This option enables leda_en controlled by GPIO using optical sensor driver.
+
+config SENSORS_IMS1911
+	tristate "IMS1911 proximity sensor support"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for sharp Sensortec's
+	  proximity sensors SENSORS_IMS1911.
+
+config SENSORS_CM36672P
+	tristate "CM36672P proximity sensor support"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for
+	  proximity sensors SENSORS_CM36672P.
+
+config SENSORS_K2HH
+	depends on I2C
+	tristate "ST K2HH accelerometer"
+	default n
+	help
+	  This option enables st k2hh accel driver
+
+config SENSORS_K2HH_HAS_REGULATOR
+	depends on I2C
+	tristate "sensor use connected regulator"
+	default n
+	help
+	  This option enable K2HH driver to parse connected regulators.
+
+endif
+endmenu
